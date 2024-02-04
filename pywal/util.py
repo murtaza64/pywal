@@ -256,6 +256,17 @@ def saturate_color(color, amount):
 
     return rgb_to_hex((int(r), int(g), int(b)))
 
+def brighten_color(color, min_brightness):
+    """Brighten a hex color."""
+    r, g, b = hex_to_rgb(color)
+    r, g, b = [x / 255.0 for x in (r, g, b)]
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    l = max(min_brightness, l)
+    r, g, b = colorsys.hls_to_rgb(h, l, s)
+    r, g, b = [x * 255.0 for x in (r, g, b)]
+
+    return rgb_to_hex((int(r), int(g), int(b)))
+
 
 def rgb_to_yiq(color):
     """Sort a list of colors."""

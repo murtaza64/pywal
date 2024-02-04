@@ -6,6 +6,7 @@ import os
 import random
 import re
 import sys
+import colorsys
 
 from . import theme
 from . import util
@@ -139,6 +140,14 @@ def saturate_colors(colors, amount):
 
     return colors
 
+def brighten_colors(colors, min_brightness):
+    """Brighten all colors."""
+    for i, _ in enumerate(colors):
+        if i not in [0, 7, 8, 15]:
+            colors[i] = util.brighten_color(colors[i], min_brightness)
+
+    return colors
+
 
 def cache_fname(img, backend, cols16, light, cache_dir, sat=""):
     """Create the cache file name."""
@@ -193,16 +202,22 @@ def get(img, light=False, cols16=False, backend="wal", cache_dir=CACHE_DIR, sat=
 
         # Dynamically import the backend we want to use.
         # This keeps the dependencies "optional".
-        try:
-            __import__("pywal.backends.%s" % backend)
-        except ImportError:
-            __import__("pywal.backends.wal")
-            backend = "wal"
+        # try:
+        __import__("pywal.backends.%s" % backend)
+        # except ImportError:
+        #     __import__("pywal.backends.wal")
+        #     backend = "wal"
 
         logging.info("Using %s backend.", backend)
         backend = sys.modules["pywal.backends.%s" % backend]
         colors = getattr(backend, "get")(img, light, cols16)
-        colors = colors_to_dict(saturate_colors(colors, sat), img)
+        colors = saturate_colors(colors, sat)
+        colors = brighten_colors(colors, 0.5)
+        # for color in colors:
+        #     r, g, b = util.hex_to_rgb(color)
+        #     h, s, v = colorsys.rgb_to_hsv(r, g, b)
+        #     print(color, h, s, v)
+        colors = colors_to_dict(colors, img)
 
         util.save_file_json(colors, cache_file)
         logging.info("Generation complete.")

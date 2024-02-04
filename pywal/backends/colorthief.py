@@ -14,6 +14,7 @@ except ImportError:
 
 from .. import colors
 from .. import util
+from .. import match
 
 
 def gen_colors(img):
@@ -22,6 +23,7 @@ def gen_colors(img):
 
     for i in range(0, 10, 1):
         raw_colors = color_cmd(color_count=8 + i)
+        raw_colors = [color for color in raw_colors if not match.is_greyish(*color)]
 
         if len(raw_colors) >= 8:
             break
@@ -40,9 +42,15 @@ def gen_colors(img):
 def adjust(cols, light, cols16):
     """Create palette."""
     cols.sort(key=util.rgb_to_yiq)
-    raw_colors = [*cols, *cols]
+    logging.info("rearranging palette to match ansi colors")
+    raw_colors = match.rearrange_palette(cols)
+    # print('raw0', raw_colors)
+    raw_colors = [*raw_colors, *raw_colors]
+    # print('raw', raw_colors)
 
-    return colors.generic_adjust(raw_colors, light, cols16)
+    adjusted = colors.generic_adjust(raw_colors, light, cols16)
+    # print('adjusted', adjusted)
+    return adjusted
 
 
 def get(img, light=False, cols16=False):
