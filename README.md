@@ -1,4 +1,4 @@
-## This project is a 16 colors fork of [pywal](https://github.com/dylanaraps/pywal)
+## This project is a fork of [pywal](https://github.com/dylanaraps/pywal)
 <h3 align="center"><img src="https://i.imgur.com/5WgMACe.gif" width="200px"></h3>
 <p align="center">Generate and change color-schemes on the fly.</p>
 
@@ -6,6 +6,10 @@
 <a href="./LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
 <a href="https://pypi.python.org/pypi/pywal16/"><img src="https://img.shields.io/pypi/v/pywal16.svg"></a>
 </p>
+
+This fork tries to associate the generated colors with the semantic ANSI colors. So it will try to set color 1 (red) to the generated color that's closest to red and so on for the rest of the colors. This helps keep errors, warnings, successes etc clear. (currently only hooked up for the colorthief backend)
+
+NOTE: the existing documentation is probably outdated in places, and certainly the parts about installing from pypi.
 
 <img src="https://i.imgur.com/V1FuvJP.png" alt="img" align="right" width="400px">
 
