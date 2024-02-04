@@ -4,7 +4,6 @@
 
 <p align="center">
 <a href="./LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-<a href="https://pypi.python.org/pypi/pywal16/"><img src="https://img.shields.io/pypi/v/pywal16.svg"></a>
 </p>
 
 This fork tries to associate the generated colors with the semantic ANSI colors. So it will try to set color 1 (red) to the generated color that's closest to red and so on for the rest of the colors. This helps keep errors, warnings, successes etc clear. (currently only hooked up for the colorthief backend)
