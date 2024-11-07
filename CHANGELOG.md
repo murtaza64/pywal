@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.6.0] - 2024-07-04
+
+- Fixed empty message on KDE plasma when sending sequences.
+- Add the `okthief` backend.
+- Fix issue with `fcntl` in unsupported platforms.
+- Explicitly add the method by which 16 colors scheme is created to the file name.
+- Fix the darkness of color 0
+- Fix the darkness and saturation of colors 7 and 8
+
+## [3.5.3] - 2024-06-02
+
+- fixed issue with `wal` backend on arch where it would fail to generate a colorscheme.
+
+## [3.5.3] - 2024-05-07
+
+- Fixed issue with `wal` backend sometimes reading garbage data form imagemagick.
+- Added notice for Imagemagick 7 policy change, fix on wiki.
+- Added custom `foreground` argument just like custom `background` argument.
+- Change open files to write in non-blocking mode.
+
+## [3.5.2] - 2024-05-06
+
+- modified generic_adjust and added a pre-adjust to the colorthief backend to match legacy background colors
+
+## [3.5.1] - 2024-04-20
+
+- Added wallpaper checksum generation and comparison for cached color schemes.
+- Added toml template for new `alacritty` versions.
+
+## [3.5.0] - 2024-02-xx
+
+- Added rgb color template.
+- Added support for `swww`.
+- Added wallpaper override when using a theme.
+- Change `alacritty` template to match v11.0+ config.
+- Change wallpaper path on microsoft windows uses bytestring.
+- Change when pywal is used as module allow using user templates.
+- Added swaybg wallpaper support.
+- Change `--cols16` flag now supports arguments `darken` and `lighten` to generate the color palette.
+
 ## [3.4.0] - 2022-10-31
 
 - Fixed template exporting issue, rewriting may be necessary for a proper fix.
@@ -741,7 +781,13 @@ Note to self: Don't flag releases before coffee.
 
 
 
-[Unreleased]: https://github.com/eylles/pywal16/compare/3.4.0...HEAD
+[Unreleased]: https://github.com/eylles/pywal16/compare/3.6.0...HEAD
+[3.6.0]: https://github.com/eylles/pywal16/compare/3.5.4...3.6.0
+[3.5.4]: https://github.com/eylles/pywal16/compare/3.5.3...3.5.4
+[3.5.3]: https://github.com/eylles/pywal16/compare/3.5.2...3.5.3
+[3.5.2]: https://github.com/eylles/pywal16/compare/3.5.1...3.5.2
+[3.5.1]: https://github.com/eylles/pywal16/compare/3.5.0...3.5.1
+[3.5.0]: https://github.com/eylles/pywal16/compare/3.4.0...3.5.0
 [3.4.0]: https://github.com/eylles/pywal16/compare/3.3.0...3.4.0
 [3.3.0]: https://github.com/dylanaraps/pywal/compare/3.2.1...3.3.0
 [3.2.1]: https://github.com/dylanaraps/pywal/compare/3.2.0...3.2.1

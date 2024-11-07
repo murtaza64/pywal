@@ -1,6 +1,7 @@
 """
 Generate a colorscheme using ColorThief.
 """
+
 import logging
 import sys
 
@@ -47,6 +48,11 @@ def adjust(cols, light, cols16):
     # print('raw0', raw_colors)
     raw_colors = [*raw_colors, *raw_colors]
     # print('raw', raw_colors)
+
+    # raw_colors = [*cols, *cols]
+    # for color in raw_colors:
+    #     color = util.lighten_color(color, 0.40)
+    # raw_colors[0] = util.darken_color(cols[0], 0.80)
 
     adjusted = colors.generic_adjust(raw_colors, light, cols16)
     # print('adjusted', adjusted)

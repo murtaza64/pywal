@@ -1,6 +1,7 @@
 """
 Misc helper functions.
 """
+
 import colorsys
 import json
 import logging
@@ -10,10 +11,25 @@ import re
 import shutil
 import subprocess
 import sys
+import hashlib
+
+has_fcntl = False
+fcntl_warning = ""
+
+try:
+    import fcntl
+
+    has_fcntl = True
+except ImportError:
+    fcntl_warning = "{}, {}".format(
+        "can't skip blocking io in current platform",
+        "program could hang indefinitely",
+    )
 
 
 class Color:
     """Color formats."""
+
     alpha_num = "100"
 
     def __init__(self, hex_color):
@@ -40,14 +56,18 @@ class Color:
     @property
     def rgba(self):
         """Convert a hex color to rgba."""
-        return "rgba(%s,%s,%s,%s)" % (*hex_to_rgb(self.hex_color),
-                                      self.alpha_dec)
+        return "rgba(%s,%s,%s,%s)" % (
+            *hex_to_rgb(self.hex_color),
+            self.alpha_dec,
+        )
 
     @property
     def hex_argb(self):
         """Convert an alpha hex color to argb hex."""
-        return "#%02X%s" % (int(int(self.alpha_num) * 255 / 100),
-                            self.hex_color[1:])
+        return "#%02X%s" % (
+            int(int(self.alpha_num) * 255 / 100),
+            self.hex_color[1:],
+        )
 
     @property
     def alpha(self):
@@ -92,17 +112,17 @@ class Color:
     @property
     def red(self):
         """Red value as float between 0 and 1."""
-        return "%.3f" % (hex_to_rgb(self.hex_color)[0]/255.)
+        return "%.3f" % (hex_to_rgb(self.hex_color)[0] / 255.0)
 
     @property
     def green(self):
         """Green value as float between 0 and 1."""
-        return "%.3f" % (hex_to_rgb(self.hex_color)[1]/255.)
+        return "%.3f" % (hex_to_rgb(self.hex_color)[1] / 255.0)
 
     @property
     def blue(self):
         """Blue value as float between 0 and 1."""
-        return "%.3f" % (hex_to_rgb(self.hex_color)[2]/255.)
+        return "%.3f" % (hex_to_rgb(self.hex_color)[2] / 255.0)
 
     @property
     def red_hex(self):
@@ -134,19 +154,36 @@ class Color:
         """Blue value as decimal."""
         return "%s" % hex_to_rgb(self.hex_color)[2]
 
+    @property
+    def w3_luminance(self):
+        """Luminance value of the color according to W3 formula"""
+
+        color_channels = [float(self.red), float(self.green), float(self.blue)]
+        for index, channel in enumerate(color_channels):
+            if channel <= 0.04045:
+                color_channels[index] = channel / 12.92
+            else:
+                color_channels[index] = ((channel + 0.055) / 1.055) ** 2.4
+
+        return (
+            (0.2126 * color_channels[0])
+            + (0.7152 * color_channels[1])
+            + (0.0722 * color_channels[2])
+        )
+
     def lighten(self, percent):
         """Lighten color by percent."""
-        percent = float(re.sub(r'[\D\.]', '', str(percent)))
+        percent = float(re.sub(r"[\D\.]", "", str(percent)))
         return Color(lighten_color(self.hex_color, percent / 100))
 
     def darken(self, percent):
         """Darken color by percent."""
-        percent = float(re.sub(r'[\D\.]', '', str(percent)))
+        percent = float(re.sub(r"[\D\.]", "", str(percent)))
         return Color(darken_color(self.hex_color, percent / 100))
 
     def saturate(self, percent):
         """Saturate a color."""
-        percent = float(re.sub(r'[\D\.]', '', str(percent)))
+        percent = float(re.sub(r"[\D\.]", "", str(percent)))
         return Color(saturate_color(self.hex_color, percent / 100))
 
 
@@ -164,7 +201,7 @@ def read_file_json(input_file):
 
 def read_file_raw(input_file):
     """Read data from a file as is, don't strip
-       newlines or other special characters."""
+    newlines or other special characters."""
     with open(input_file, "r") as file:
         return file.readlines()
 
@@ -173,11 +210,28 @@ def save_file(data, export_file):
     """Write data to a file."""
     create_dir(os.path.dirname(export_file))
 
-    try:
-        with open(export_file, "w") as file:
-            file.write(data)
-    except PermissionError:
-        logging.warning("Couldn't write to %s.", export_file)
+    if has_fcntl:
+        try:
+            with open(export_file, "w") as file:
+                # Get the current flags and add non-blocking mode
+                # to skip TTYs suspended by Flow Control
+                # https://www.gnu.org/software/libc/manual/html_node/Getting-File-Status-Flags.html
+                # https://www.gnu.org/software/libc/manual/html_node/Open_002dtime-Flags.html
+                flags = fcntl.fcntl(file, fcntl.F_GETFL)
+                fcntl.fcntl(file, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+                file.write(data)
+        except PermissionError:
+            logging.warning("Couldn't write to %s.", export_file)
+        except BlockingIOError:
+            logging.warning(
+                "Couldn't write to %s, not accepting data", export_file
+            )
+    else:
+        try:
+            with open(export_file, "w") as file:
+                file.write(data)
+        except PermissionError:
+            logging.warning("Couldn't write to %s.", export_file)
 
 
 def save_file_json(data, export_file):
@@ -188,6 +242,14 @@ def save_file_json(data, export_file):
         json.dump(data, file, indent=4)
 
 
+def get_img_checksum(img):
+    checksum = hashlib.new("md5", usedforsecurity=False)
+    with open(img, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            checksum.update(chunk)
+    return checksum.hexdigest()
+
+
 def create_dir(directory):
     """Alias to create the cache dir."""
     os.makedirs(directory, exist_ok=True)
@@ -195,14 +257,18 @@ def create_dir(directory):
 
 def setup_logging():
     """Logging config."""
-    logging.basicConfig(format=("[%(levelname)s\033[0m] "
-                                "\033[1;31m%(module)s\033[0m: "
-                                "%(message)s"),
-                        level=logging.INFO,
-                        stream=sys.stdout)
-    logging.addLevelName(logging.ERROR, '\033[1;31mE')
-    logging.addLevelName(logging.INFO, '\033[1;32mI')
-    logging.addLevelName(logging.WARNING, '\033[1;33mW')
+    logging.basicConfig(
+        format=(
+            "[%(levelname)s\033[0m] "
+            "\033[1;31m%(module)s\033[0m: "
+            "%(message)s"
+        ),
+        level=logging.INFO,
+        stream=sys.stdout,
+    )
+    logging.addLevelName(logging.ERROR, "\033[1;31mE")
+    logging.addLevelName(logging.INFO, "\033[1;32mI")
+    logging.addLevelName(logging.WARNING, "\033[1;33mW")
 
 
 def hex_to_rgb(color):
@@ -275,10 +341,8 @@ def rgb_to_yiq(color):
 
 def disown(cmd):
     """Call a system command in the background,
-       disown it and hide it's output."""
-    subprocess.Popen(cmd,
-                     stdout=subprocess.DEVNULL,
-                     stderr=subprocess.DEVNULL)
+    disown it and hide it's output."""
+    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def get_pid(name):
@@ -287,7 +351,7 @@ def get_pid(name):
         return False
 
     try:
-        if platform.system() != 'Darwin':
+        if platform.system() != "Darwin":
             subprocess.check_output(["pidof", "-s", name])
         else:
             subprocess.check_output(["pidof", name])
@@ -296,3 +360,47 @@ def get_pid(name):
         return False
 
     return True
+
+
+def has_im():
+    """Check to see if the user has im installed."""
+    if shutil.which("magick"):
+        return "magick"
+
+    if shutil.which("convert"):
+        return "convert"
+
+    logging.error("Problem running image averaging command.")
+    logging.error("Imagemagick wasn't found on your system.")
+    sys.exit(1)
+
+
+def image_average_color(img):
+    """Get the average color of an image using imagemagick
+    by resizing to 1x1"""
+    # Attempt to run the imagemagick command
+    # Resizes to 1x1 and enumerates all pixel data (one pixel) to stdout
+    # Command adapted from a stackoverflow thread, but tinkered with because the
+    # thread was a decade old:
+    # # https://stackoverflow.com/questions/25488338/how-to-find-average-color-of-an-image-with-imagemagick
+    cmd_flags = [
+        "-resize",
+        "1x1!",
+        "-format",
+        '"%[fx:int(255*r+.5)],%[fx:int(255*g+.5)],%[fx:int(255*b+.5)]"',
+        "txt:-",
+    ]
+    magick_command = has_im()
+    try:
+        magick_output = subprocess.run(
+            [magick_command, img] + cmd_flags, stdout=subprocess.PIPE
+        )
+    except subprocess.CalledProcessError as Err:
+        logging.error(
+            "Problem running image averaging command. Is imagemagick installed?"
+        )
+        logging.error("Imagemagick error: %s", Err)
+        return ""
+
+    # Regex hex code from the command output
+    return re.search("#[0-9A-Fa-f]{6}", magick_output.stdout.decode("utf-8"))[0]
