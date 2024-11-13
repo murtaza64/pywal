@@ -393,14 +393,12 @@ def get(
         #     r, g, b = util.hex_to_rgb(color)
         #     h, s, v = colorsys.rgb_to_hsv(r, g, b)
         #     print(color, h, s, v)
-        colors = colors_to_dict(colors, img)
 
         # # Post-processing steps from command-line arguments
         # colors = saturate_colors(colors, sat)
-        # colors = ensure_contrast(colors, contrast, light, img)
-        #
-        # colors = colors_to_dict(colors, img)
+        colors = ensure_contrast(colors, contrast, light, img)
 
+        colors = colors_to_dict(colors, img)
         util.save_file_json(colors, cache_file)
         logging.info("Generation complete.")
 

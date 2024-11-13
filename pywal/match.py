@@ -44,6 +44,15 @@ TARGET_COLORS = {
     "cyan": (180/360, 1, 1),
 }
 
+HUE_TOLERANCES = {
+    "red": 0.15,
+    "green": 0.15,
+    "yellow": 0.1,
+    "blue": 0.15,
+    "magenta": 0.15,
+    "cyan": 0.15,
+}
+
 def color_distance(hsv_a, hsv_b):
     h1, s1, v1 = hsv_a
     h2, s2, v2 = hsv_b
@@ -159,28 +168,39 @@ def interpolate_hue(color_map, target: str):
     print(' ', new_color)
     return new_color
 
-def interpolate_by_avg_sv(color_map, target: str):
-    reversed_target_hues = {v: k for k, v in TARGET_HUES.items()}
+def offset_target_hue(h, target_h, push_amount=0.15):
+    increased = (target_h + push_amount) % 1
+    decreased = (target_h - push_amount) % 1
+    if circle_distance(increased, h) < circle_distance(decreased, h):
+        return increased
+    return decreased
+
+def interpolate_by_avg_sv(color_map, target: str, tolerance):
+    original = color_map[target]
+    # push the target hue towards the actual hue
+    h, _, _ = rgb_to_hsv(*original)
     target_hue = TARGET_HUES[target]
+    new_h = offset_target_hue(h, target_hue, tolerance)
     avg_s = sum(rgb_to_hsv(*color_map[t])[1] for t in color_map) / len(color_map)
     avg_v = sum(rgb_to_hsv(*color_map[t])[2] for t in color_map) / len(color_map)
-    # dull color since it wasnt part of the palette
+    # # dull color since it wasnt part of the palette
     avg_s = avg_s/2
     avg_v = avg_v * 0.8
-    new_color = tuple(int(p) for p in hsv_to_rgb(target_hue, avg_s, avg_v))
-    # print("interpolated by avg s and v to get", target, "color:", end='')
-    # print_colored_square(*new_color)
-    # print_colored_square(*new_color)
-    # print()
+    new_color = tuple(p for p in hsv_to_rgb(new_h, avg_s, avg_v))
+    print("interpolated by avg s and v to get", target, "color:", end='')
+    print_colored_square(*new_color)
+    print_colored_square(*new_color)
+    print()
     return new_color
 
 def fix_bad_colors(color_map):
     for target, color in color_map.items():
         target_hue = TARGET_HUES[target]
         h, s, v = rgb_to_hsv(*color)
-        if circle_distance(h, target_hue) > 0.4:
-            logging.warn(f"bad match for {target} {color} interpolated")
-            color_map[target] = interpolate_by_avg_sv(color_map, target)
+        tol = HUE_TOLERANCES[target]
+        if circle_distance(h, target_hue) > tol:
+            logging.warning(f"bad match for {target} {color} interpolated")
+            color_map[target] = interpolate_by_avg_sv(color_map, target, tol)
 
 
 def categorize_palette(colors):

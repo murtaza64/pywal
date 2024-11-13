@@ -18,6 +18,8 @@ __cache_version__ = "2.0.0"
 
 
 HOME = os.getenv("HOME", os.getenv("USERPROFILE"))
+if not HOME:
+    raise Exception("No $HOME or $USERPROFILE found.")
 XDG_CACHE_DIR = os.getenv("XDG_CACHE_HOME", os.path.join(HOME, ".cache"))
 XDG_CONF_DIR = os.getenv("XDG_CONFIG_HOME", os.path.join(HOME, ".config"))
 

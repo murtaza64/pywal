@@ -7,9 +7,15 @@ import re
 import shutil
 import subprocess
 import urllib.parse
+import plistlib
+import datetime
+import tempfile
 
 from .settings import HOME, OS, CACHE_DIR
 from . import util
+
+if not HOME:
+    raise Exception("The HOME environment variable is not set.")
 
 
 def get_desktop_env():
@@ -183,36 +189,93 @@ def set_mac_wallpaper(img):
     db_file = "Library/Application Support/Dock/desktoppicture.db"
     db_path = os.path.join(HOME, db_file)
 
-    # Put the image path in the database
-    sql = 'insert into data values("%s"); ' % img
-    subprocess.call(["sqlite3", db_path, sql])
+    # Fresh installs of Sonoma will not have this file.
+    # Check if file exists to make backwards compatibility forwards compatable.
+    if os.path.isfile(db_path):
 
-    # Get the index of the new entry
-    sql = "select max(rowid) from data;"
-    new_entry = subprocess.check_output(["sqlite3", db_path, sql])
-    new_entry = new_entry.decode("utf8").strip("\n")
+        # Put the image path in the database
+        sql = "insert into data values(\"%s\"); " % img
+        subprocess.call(["sqlite3", db_path, sql])
 
-    # Get all picture ids (monitor/space pairs)
-    get_pics_cmd = ["sqlite3", db_path, "select rowid from pictures;"]
-    pictures = subprocess.check_output(get_pics_cmd)
-    pictures = pictures.decode("utf8").split("\n")
+        # Get the index of the new entry
+        sql = "select max(rowid) from data;"
+        new_entry = subprocess.check_output(["sqlite3", db_path, sql])
+        new_entry = new_entry.decode('utf8').strip('\n')
 
-    # Clear all existing preferences
-    sql += "delete from preferences; "
+        # Get all picture ids (monitor/space pairs)
+        get_pics_cmd = ['sqlite3', db_path, "select rowid from pictures;"]
+        pictures = subprocess.check_output(get_pics_cmd)
+        pictures = pictures.decode('utf8').split('\n')
 
-    # Write all pictures to the new image
-    for pic in pictures:
-        if pic:
-            sql += "insert into preferences (key, data_id, picture_id) "
-            sql += "values(1, %s, %s); " % (new_entry, pic)
+        # Clear all existing preferences
+        sql += "delete from preferences; "
 
-    subprocess.call(["sqlite3", db_path, sql])
+        # Write all pictures to the new image
+        for pic in pictures:
+            if pic:
+                sql += 'insert into preferences (key, data_id, picture_id) '
+                sql += 'values(1, %s, %s); ' % (new_entry, pic)
 
-    # Kill the dock to fix issues with cached wallpapers.
-    # macOS caches wallpapers and if a wallpaper is set that shares
-    # the filename with a cached wallpaper, the cached wallpaper is
-    # used instead.
-    subprocess.call(["killall", "Dock"])
+        subprocess.call(["sqlite3", db_path, sql])
+
+        # Kill the dock to fix issues with cached wallpapers.
+        # macOS caches wallpapers and if a wallpaper is set that shares
+        # the filename with a cached wallpaper, the cached wallpaper is
+        # used instead.
+        subprocess.call(["killall", "Dock"])
+
+
+    # MacOS Sonomoa uses a plist file instead.  Interestingly the database referenced above
+    # still exists, but doesn't seem to do anyything on Sonoma, so lets leave it for backward
+    # compatability
+
+    plist_path = "Library/Application Support/com.apple.wallpaper/Store/Index.plist"
+    plist_path = os.path.join(HOME, plist_path)
+
+    # Write a backup of plist file in temp in case something horrific happens
+    with open(plist_path, 'rb') as f:
+        old_plist = plistlib.load(f)
+        with tempfile.NamedTemporaryFile(prefix="pywal-plist-bk-", delete=False) as g:
+            logging.info(f"Backup plist file saved to {g.name}")
+            plistlib.dump(old_plist, g)
+
+    # Unfortunately these fields seem mandatory.  not extensively tested
+    # - Configuration is a plist unto itself and a value is required
+    with open(plist_path, 'wb') as f:
+        new_plist = {'Spaces': {},
+         'SystemDefault': {'Desktop': {'LastSet': datetime.datetime.now(),
+           'LastUse': datetime.datetime.now(),
+           'Content': {'Choices': [{'Provider': 'com.apple.wallpaper.choice.image',
+              'Files': [{'relative': f'file:///{img}'}],
+              'Configuration': b''}],
+            'Shuffle': '$null'}},
+          'Type': 'individual',
+          'Idle': {'LastSet': datetime.datetime.now(),
+           'LastUse': datetime.datetime(2023, 10, 21, 2, 51, 4, 435303),
+           'Content': {'Choices': [{'Provider': 'com.apple.wallpaper.choice.aerials',
+              'Files': [],
+              'Configuration': b''}],
+            'Shuffle': {'Type': 'afterDuration',
+             'Duration': [2341, 16172123445939666944]}}}},
+         'Displays': {},
+         'AllSpacesAndDisplays': {'Desktop': {'LastSet': datetime.datetime.now(),
+           'LastUse': datetime.datetime.now(),
+           'Content': {'Choices': [{'Provider': 'com.apple.wallpaper.choice.image',
+              'Files': [{'relative': f'file:///{img}'}],
+              'Configuration': b'bplist00\xd2\x01\x02\x03\x0c_\x10\x0fbackgroundColorYplacement\xd2\x04\x05\x06\x0bZcomponentsZcolorSpace\xa4\x07\x08\t\n#?\xd0PPPPPP#?\xdaZZZZZZ#?\xe5UUUUUU#?\xf0\x00\x00\x00\x00\x00\x00O\x10Cbplist00_\x10\x17kCGColorSpaceGenericRGB\x08\x00\x00\x00\x00\x00\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"\x10\x01\x08\r\x1f).9DIR[dm\xb3\x00\x00\x00\x00\x00\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb5'}],
+            'Shuffle': '$null'},
+           'Last': datetime.datetime.now()},
+          'Type': 'individual',
+          'Idle': {'LastSet': datetime.datetime.now(),
+           'LastUse': datetime.datetime.now(),
+           'Content': {'Choices': [{'Provider': 'com.apple.wallpaper.choice.aerials',
+              'Files': [],
+              'Configuration': b''}],
+            'Shuffle': {'Type': 'afterDuration',
+             'Duration': [2341, 16172123445939666944]}}}}}
+        plistlib.dump(new_plist,f)
+        f.close()
+    subprocess.call(["killall", "WallpaperAgent"])
 
 
 def set_win_wallpaper(img):
@@ -244,6 +307,9 @@ def change(img):
 
     else:
         set_desktop_wallpaper(desktop, img)
+
+    # link wallpaper at ~/.cache/wal/wallpaper
+    subprocess.call(["ln", "-sf", img, os.path.join(CACHE_DIR, "wallpaper")])
 
     logging.info("Set the new wallpaper.")
 
