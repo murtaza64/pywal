@@ -5,9 +5,21 @@ Export colors in various formats.
 import logging
 import os
 import re
+import shutil
 
 from . import util
 from .settings import CACHE_DIR, CONF_DIR, MODULE_DIR
+
+
+class ExportFile:
+    """A simple class for representing the few things
+    needed to read a file and exporting it.
+    """
+
+    def __init__(self, abs_path, base_dir):
+        self.name = os.path.basename(abs_path)
+        self.path = abs_path
+        self.relative_path = os.path.relpath(abs_path, base_dir)
 
 
 def template(colors, input_file, output_file=None):
@@ -91,6 +103,7 @@ def get_export_type(export_type):
         "css": "colors.css",
         "dmenu": "colors-wal-dmenu.h",
         "dwm": "colors-wal-dwm.h",
+        "dwm_urg": "colors-wal-dwm-urg.h",
         "st": "colors-wal-st.h",
         "tabbed": "colors-wal-tabbed.h",
         "gtk2": "colors-gtk2.rc",
@@ -117,19 +130,45 @@ def get_export_type(export_type):
     }.get(export_type, export_type)
 
 
+def walk(directory):
+    """Walks a directory tree and yields files for export"""
+    for root, _, files in os.walk(directory):
+        for file in files:
+            yield (ExportFile(os.path.join(root, file), directory))
+
+
+def generate_color_images(colors, destdir):
+    """Save palette colors as an image"""
+    if shutil.which("ultrakill-wal"):
+        util.disown(["ultrakill-wal"])
+    else:
+        # Dynamically import.
+        # This keeps the dependencies "optional".
+        try:
+            from PIL import Image
+            img = Image.new('RGB', (16, 1))
+            for i, color in enumerate(colors['colors'].values()):
+                img.paste(Image.new('RGB', (1, 1), color), (i, 0))
+            img.save(os.path.join(destdir, 'colors.png'))
+        except ImportError:
+            # we do not want to do anything here
+            pass
+
+
 def every(colors, output_dir=CACHE_DIR):
     """Export all template files."""
+    join = os.path.join  # Minor optimization.
+    generate_color_images(colors, output_dir)
     colors = flatten_colors(colors)
-    template_dir = os.path.join(MODULE_DIR, "templates")
-    template_dir_user = os.path.join(CONF_DIR, "templates")
+    template_dir = join(MODULE_DIR, "templates")
+    template_dir_user = join(CONF_DIR, "templates")
     util.create_dir(template_dir_user)
 
-    join = os.path.join  # Minor optimization.
     logging.info("Reading system templates from: %s", template_dir)
     logging.info("Reading user templates from: %s", template_dir_user)
-    for file in [*os.scandir(template_dir), *os.scandir(template_dir_user)]:
+    for file in [*walk(template_dir), *walk(template_dir_user)]:
         if file.name != ".DS_Store" and not file.name.endswith(".swp"):
-            template(colors, file.path, join(output_dir, file.name))
+            template(colors, file.path, join(output_dir, file.relative_path))
 
     logging.info("Exported all files.")
     logging.info("Exported all user files to %s", output_dir)

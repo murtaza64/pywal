@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import subprocess
+import time
 
 from .settings import CACHE_DIR, MODULE_DIR, OS
 from . import util
@@ -27,19 +28,6 @@ def xrdb(xrdb_files=None):
     if shutil.which("xrdb") and OS != "Darwin":
         for file in xrdb_files:
             subprocess.run(["xrdb", "-merge", "-quiet", file], check=False)
-
-
-def gtk():
-    """Reload GTK theme on the fly."""
-    # Here we call a Python 2 script to reload the GTK themes.
-    # This is done because the Python 3 GTK/Gdk libraries don't
-    # provide a way of doing this.
-    if shutil.which("python2"):
-        gtk_reload = os.path.join(MODULE_DIR, "scripts", "gtk_reload.py")
-        util.disown(["python2", gtk_reload])
-
-    else:
-        logging.warning("GTK2 reload support requires Python 2.")
 
 
 def i3():
@@ -84,13 +72,25 @@ def kitty():
 def polybar():
     """Reload polybar colors."""
     if shutil.which("polybar") and util.get_pid("polybar"):
-        util.disown(["pkill", "-USR1", "polybar"])
+        util.disown(["pkill", "-x", "-USR1", "polybar"])
 
 
 def sway():
     """Reload sway colors."""
     if shutil.which("swaymsg") and util.get_pid("sway"):
         util.disown(["swaymsg", "reload"])
+
+
+def firefox():
+    """reload pywalfox."""
+    if shutil.which("pywalfox"):
+        util.disown(["pywalfox", "update"])
+
+
+def waybar():
+    """Reload waybar colors."""
+    if shutil.which("waybar") and util.get_pid("waybar"):
+        util.disown(["pkill", "-x", "-USR2", "waybar"])
 
 
 def colors(cache_dir=CACHE_DIR):
@@ -103,6 +103,24 @@ def colors(cache_dir=CACHE_DIR):
         print("".join(util.read_file(sequences)), end="")
 
 
+def termux():
+    """reload termux colors."""
+    if shutil.which("termux-reload-settings"):
+        util.disown(["termux-reload-settings"])
+
+
+def mako():
+    """Reload mako colors."""
+    if shutil.which("mako") and util.get_pid("mako"):
+        util.disown(["makoctl", "reload"])
+
+
+def nvim():
+    """Reload nvim colors."""
+    if shutil.which("nvim-colo-reload") and util.get_pid("nvim"):
+        util.disown(["nvim-colo-reload"])
+
+
 def env(xrdb_file=None, tty_reload=True):
     """Reload environment."""
     xrdb(xrdb_file)
@@ -111,5 +129,10 @@ def env(xrdb_file=None, tty_reload=True):
     kitty()
     sway()
     polybar()
+    nvim()
+    waybar()
+    termux()
+    mako()
+    firefox()
     logging.info("Reloaded environment.")
     tty(tty_reload)

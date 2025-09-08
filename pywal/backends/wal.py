@@ -73,34 +73,54 @@ def gen_colors(img):
     magick_command = has_im()
 
     raw_colors = try_gen_in_range(img, magick_command)
+    pattern = re.compile('#[A-Z0-9]{6}')
+    match = None
 
     try:
-        out = [re.search("#.{6}", str(col)).group(0) for col in raw_colors[1:]]
+        out = [
+            match.group() for col in raw_colors
+            if (match := pattern.search(str(col)))
+        ]
     except AttributeError:
         if magick_command == ["magick", "convert"]:
             logging.warning("magick convert failed, using only magick")
             magick_command = ["magick"]
             raw_colors = try_gen_in_range(img, magick_command)
             out = [
-                re.search("#.{6}", str(col)).group(0) for col in raw_colors[1:]
+                match.group() for col in raw_colors
+                if (match := pattern.search(str(col)))
             ]
 
     return out
 
 
-def adjust(cols, light, cols16):
+def adjust(cols, light, **kwargs):
     """Adjust the generated colors and store them in a dict that
-    we will later save in json format."""
+    we will later save in json format.
+    :keyword-args:
+    -    c16: use 16 colors through specified method - [ "lighten" | "darken" ]
+    """
+    if "c16" in kwargs:
+        cols16 = kwargs["c16"]
+    else:
+        cols16 = False
     raw_colors = cols[:1] + cols[8:16] + cols[8:-1]
 
-    return colors.generic_adjust(raw_colors, light, cols16)
+    return colors.generic_adjust(raw_colors, light, c16=cols16)
 
 
-def get(img, light=False, cols16=False):
-    """Get colorscheme."""
+def get(img, light=False, **kwargs):
+    """Get colorscheme.
+    :keyword-args:
+    -    c16: use 16 colors through specified method - [ "lighten" | "darken" ]
+    """
+    if "c16" in kwargs:
+        cols16 = kwargs["c16"]
+    else:
+        cols16 = False
     colors = gen_colors(img)
     # it is possible we could have picked garbage data
     garbage = "# Image"
     if garbage in colors:
         colors.remove(garbage)
-    return adjust(colors, light, cols16)
+    return adjust(colors, light, c16=cols16)

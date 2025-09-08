@@ -24,16 +24,30 @@ def gen_colors(img):
     return [util.rgb_to_hex([*color[0]]) for color in raw_colors]
 
 
-def adjust(cols, light, cols16):
-    """Create palette."""
+def adjust(cols, light, **kwargs):
+    """Create palette.
+    :keyword-args:
+    -    c16: use 16 colors through specified method - [ "lighten" | "darken" ]
+    """
+    if "c16" in kwargs:
+        cols16 = kwargs["c16"]
+    else:
+        cols16 = False
     raw_colors = [cols[0], *cols, "#FFFFFF", "#000000", *cols, "#FFFFFF"]
     raw_colors[0] = util.darken_color(cols[0], 0.80)
 
-    return colors.generic_adjust(raw_colors, light, cols16)
+    return colors.generic_adjust(raw_colors, light, c16=cols16)
 
 
-def get(img, light=False, cols16=False):
-    """Get colorscheme."""
+def get(img, light=False, **kwargs):
+    """Get colorscheme.
+    :keyword-args:
+    -    c16: use 16 colors through specified method - [ "lighten" | "darken" ]
+    """
+    if "c16" in kwargs:
+        cols16 = kwargs["c16"]
+    else:
+        cols16 = False
     cols = gen_colors(img)
 
     if len(cols) < 6:
@@ -41,4 +55,4 @@ def get(img, light=False, cols16=False):
         logging.error("Try another backend or another image. (wal --backend)")
         sys.exit(1)
 
-    return adjust(cols, light, cols16)
+    return adjust(cols, light, c16=cols16)

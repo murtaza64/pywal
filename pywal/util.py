@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import hashlib
+import copy
 
 has_fcntl = False
 fcntl_warning = ""
@@ -31,6 +32,7 @@ class Color:
     """Color formats."""
 
     alpha_num = "100"
+    passed_alpha_num = None
 
     def __init__(self, hex_color):
         self.hex_color = hex_color
@@ -64,25 +66,29 @@ class Color:
     @property
     def hex_argb(self):
         """Convert an alpha hex color to argb hex."""
+        al_val = alpha_integrify(self.alpha_num)
         return "#%02X%s" % (
-            int(int(self.alpha_num) * 255 / 100),
+            int(int(al_val) * 255 / 100),
             self.hex_color[1:],
         )
 
     @property
     def alpha(self):
         """Add URxvt alpha value to color."""
-        return "[%s]%s" % (self.alpha_num, self.hex_color)
+        al_val = alpha_integrify(self.alpha_num)
+        return "[%s]%s" % (al_val, self.hex_color)
 
     @property
     def alpha_dec(self):
         """Export the alpha value as a decimal number in [0, 1]."""
-        return int(self.alpha_num) / 100
+        al_val = alpha_integrify(self.alpha_num)
+        return int(al_val) / 100
 
     @property
     def alpha_hex(self):
         """Export the alpha value as a hexdecimal number in [00, FF]."""
-        return "%02X" % (int(int(self.alpha_num) * 255 / 100))
+        al_val = alpha_integrify(self.alpha_num)
+        return "%02X" % (int(int(al_val) * 255 / 100))
 
     @property
     def decimal(self):
@@ -185,6 +191,11 @@ class Color:
         """Saturate a color."""
         percent = float(re.sub(r"[\D\.]", "", str(percent)))
         return Color(saturate_color(self.hex_color, percent / 100))
+
+    def adjust_alpha(self, alpha="100"):
+        adjusted = copy.copy(self)
+        adjusted.alpha_num = alpha
+        return adjusted
 
 
 def read_file(input_file):
@@ -299,6 +310,25 @@ def lighten_color(color, amount):
     return rgb_to_hex(color)
 
 
+def alpha_integrify(alpha_value):
+    """
+    ensure the alpha string is an int between 0 and 100
+
+    return: int string between 0 an 100
+    """
+    # could be a string containing a float like 0.7
+    a = float(alpha_value)
+    if a < 0:
+        a = abs(a)
+    if a < 1:
+        a = a * 100
+    if a > 100:
+        a = 100
+    a = int(a)
+    a = str(a)
+    return a
+
+
 def blend_color(color, color2):
     """Blend two colors together."""
     r1, g1, b1 = hex_to_rgb(color)
@@ -312,7 +342,9 @@ def blend_color(color, color2):
 
 
 def saturate_color(color, amount):
-    """Saturate a hex color."""
+    """Change saturation of a hex color to passed value.
+
+    new_saturation = amount"""
     r, g, b = hex_to_rgb(color)
     r, g, b = [x / 255.0 for x in (r, g, b)]
     h, l, s = colorsys.rgb_to_hls(r, g, b)
@@ -328,6 +360,24 @@ def brighten_color(color, min_brightness):
     r, g, b = [x / 255.0 for x in (r, g, b)]
     h, l, s = colorsys.rgb_to_hls(r, g, b)
     l = max(min_brightness, l)
+    r, g, b = colorsys.hls_to_rgb(h, l, s)
+    r, g, b = [x * 255.0 for x in (r, g, b)]
+
+    return rgb_to_hex((int(r), int(g), int(b)))
+
+
+def add_saturation(color, amount):
+    """Add saturation to a hex color.
+
+    new_saturation = color_saturation + amount"""
+    r, g, b = hex_to_rgb(color)
+    r, g, b = [x / 255.0 for x in (r, g, b)]
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    s = s + amount
+    if s > 1.0:
+        s = 1
+    if s < -1.0:
+        s = -1
     r, g, b = colorsys.hls_to_rgb(h, l, s)
     r, g, b = [x * 255.0 for x in (r, g, b)]
 

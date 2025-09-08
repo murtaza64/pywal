@@ -15,13 +15,6 @@ import os
 import shutil
 import sys
 
-try:
-    import colorama
-
-    colorama.just_fix_windows_console()  # NOOP for non-Windows
-except ImportError:
-    pass
-
 from .settings import __version__, CACHE_DIR, CONF_DIR
 from . import colors
 from . import export
@@ -31,6 +24,27 @@ from . import sequences
 from . import theme
 from . import util
 from . import wallpaper
+from . import donation
+from . import eastereggs
+
+
+show_colorama_warning = False
+if sys.platform.startswith("win"):
+    try:
+        import colorama
+        colorama.just_fix_windows_console()
+    except ImportError:
+        no_colorama_terms = [
+                "wezterm",
+                "alacritty",
+                "hyper",
+                "putty",
+                "ghostty",
+                "mintty",
+                ]
+        if os.environ.get("TERMINAL") not in no_colorama_terms and \
+           os.environ.get("TERM_PROGRAM") not in no_colorama_terms:
+            show_colorama_warning = True
 
 
 def get_args():
@@ -42,7 +56,8 @@ def get_args():
         "-a",
         metavar='"alpha"',
         help="Set terminal background transparency. \
-                           *Only works in URxvt*",
+              Must be a number between 0 and 100. \
+              *Only works in terminals that implement OSC-11 (URxvt)*",
     )
 
     arg.add_argument(
@@ -59,6 +74,16 @@ def get_args():
         help="Which color backend to use. \
                            Use 'wal --backend' to list backends.",
         const="list_backends",
+        type=str,
+        nargs="?",
+    )
+
+    arg.add_argument(
+        "--out-dir",
+        metavar="out_dir",
+        help="Cache dir to export themes. \
+              Default is 'XDG_CACHE_HOME/wal'. \
+              This can also be set with the env var: 'PYWAL_CACHE_DIR'",
         type=str,
         nargs="?",
     )
@@ -101,7 +126,7 @@ def get_args():
     )
 
     arg.add_argument(
-        "--saturate", metavar="0.0-1.0", help="Set the color saturation."
+        "--saturate", metavar="-1.0 - 1.0", help="Set the color saturation."
     )
 
     arg.add_argument(
@@ -259,7 +284,9 @@ def parse_args(parser):
         sys.stdout = sys.stderr = open(os.devnull, "w")
 
     if args.a:
-        util.Color.alpha_num = args.a
+        util.alpha_integrify(args.a)
+        util.Color.passed_alpha_num = args.a
+        util.Color.alpha_num = args.a or util.Color.alpha_num
 
     if args.i and not args.theme:
         image_file = image.get(
@@ -268,14 +295,14 @@ def parse_args(parser):
         colors_plain = colors.get(
             image_file,
             args.l,
-            args.cols16,
             args.backend,
             sat=args.saturate,
-            contrast=args.contrast,
+            c16=args.cols16,
+            cst=args.contrast,
         )
 
     if args.theme:
-        colors_plain = theme.file(args.theme, args.l)
+        colors_plain = theme.file(args.theme, args.l, c16=args.cols16)
         if args.i:
             colors_plain["wallpaper"] = args.i
 
@@ -287,10 +314,10 @@ def parse_args(parser):
         colors_plain = colors.get(
             cached_wallpaper[0],
             args.l,
-            args.cols16,
             args.backend,
             sat=args.saturate,
-            contrast=args.contrast,
+            c16=args.cols16,
+            cst=args.contrast,
         )
 
     if args.b:
@@ -314,7 +341,10 @@ def parse_args(parser):
     if sys.stdout.isatty():
         colors.palette()
 
-    export.every(colors_plain)
+    if args.out_dir:
+        export.every(colors_plain, CACHE_DIR)
+    else:
+        export.every(colors_plain)
 
     if not args.e:
         reload.env(tty_reload=not args.t)
@@ -323,21 +353,32 @@ def parse_args(parser):
         for cmd in args.o:
             util.disown([cmd])
 
-    if not args.e:
-        reload.gtk()
-
 
 def main():
     """Main script function."""
+    global CACHE_DIR
+    default_cache_dir = CACHE_DIR
     util.create_dir(os.path.join(CONF_DIR, "templates"))
     util.create_dir(os.path.join(CONF_DIR, "colorschemes/light/"))
     util.create_dir(os.path.join(CONF_DIR, "colorschemes/dark/"))
 
     util.setup_logging()
+
+    if show_colorama_warning:
+        logging.warning("colorama is not present")
+
     parser = get_args()
+
+    args = parser.parse_args()
+    if args.out_dir:
+        CACHE_DIR = args.out_dir
+    else:
+        CACHE_DIR = default_cache_dir
 
     parse_args_exit(parser)
     parse_args(parser)
+    donation.donation_message()
+    eastereggs.eemsg()
 
 
 if __name__ == "__main__":

@@ -27,9 +27,9 @@ def list_backends():
 def normalize_img_path(img: str):
     """Normalizes the image path for output."""
     if os.name == "nt":
-        # On Windows, the JSON.dump ends up outputting un-escaped backslash breaking
-        # the ability to read colors.json. Windows supports forward slash, so we can
-        # use that for now
+        # On Windows, the JSON.dump ends up outputting un-escaped backslash
+        # breaking the ability to read colors.json. Windows supports forward
+        # slash, so we can use that for now
         return img.replace("\\", "/")
     return img
 
@@ -66,34 +66,90 @@ def colors_to_dict(colors, img):
     }
 
 
-def generic_adjust(colors, light, cols16):
-    """Generic color adjustment for themers."""
+def shade_16(colors, light, cols16):
+    """Generic 16 color shading
+    this function will apply the 16 color shading
+    to any color dict it is passed
+
+    colors: dict
+    light:  boolean - werether the colorscheme is light
+    cols16: str [lighten|darken] - method to generate the shades"""
+
+    # detect dict type
+    if "color0" in colors:
+        k_v = [
+                "color0", "color1", "color2", "color3",
+                "color4", "color5", "color6", "color7",
+                "color8", "color9", "color10", "color11",
+                "color12", "color13", "color14", "color15",
+              ]
+    else:
+        k_v = [
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+              ]
+
+    if cols16:
+        if light:
+            colors[k_v[7]] = util.darken_color(colors[k_v[0]], 0.50)
+            colors[k_v[8]] = util.darken_color(colors[k_v[0]], 0.25)
+            if cols16 == "lighten":
+                colors[k_v[9]] = util.lighten_color(colors[k_v[1]], 0.25)
+                colors[k_v[10]] = util.lighten_color(colors[k_v[2]], 0.25)
+                colors[k_v[11]] = util.lighten_color(colors[k_v[3]], 0.25)
+                colors[k_v[12]] = util.lighten_color(colors[k_v[4]], 0.25)
+                colors[k_v[13]] = util.lighten_color(colors[k_v[5]], 0.25)
+                colors[k_v[14]] = util.lighten_color(colors[k_v[6]], 0.25)
+                colors[k_v[15]] = util.darken_color(colors[k_v[0]], 0.75)
+            else:
+                colors[k_v[1]] = util.darken_color(colors[k_v[1]], 0.25)
+                colors[k_v[2]] = util.darken_color(colors[k_v[2]], 0.25)
+                colors[k_v[3]] = util.darken_color(colors[k_v[3]], 0.25)
+                colors[k_v[4]] = util.darken_color(colors[k_v[4]], 0.25)
+                colors[k_v[5]] = util.darken_color(colors[k_v[5]], 0.25)
+                colors[k_v[6]] = util.darken_color(colors[k_v[6]], 0.25)
+                colors[k_v[15]] = util.darken_color(colors[k_v[0]], 0.75)
+        else:
+            colors[k_v[7]] = util.lighten_color(colors[k_v[0]], 0.55)
+            colors[k_v[7]] = util.saturate_color(colors[k_v[7]], 0.05)
+            colors[k_v[8]] = util.lighten_color(colors[k_v[0]], 0.35)
+            colors[k_v[8]] = util.saturate_color(colors[k_v[8]], 0.10)
+            colors[k_v[15]] = util.lighten_color(colors[k_v[0]], 0.75)
+            if cols16 == "lighten":
+                colors[k_v[9]] = util.lighten_color(colors[k_v[1]], 0.25)
+                colors[k_v[10]] = util.lighten_color(colors[k_v[2]], 0.25)
+                colors[k_v[11]] = util.lighten_color(colors[k_v[3]], 0.25)
+                colors[k_v[12]] = util.lighten_color(colors[k_v[4]], 0.25)
+                colors[k_v[13]] = util.lighten_color(colors[k_v[5]], 0.25)
+                colors[k_v[14]] = util.lighten_color(colors[k_v[6]], 0.25)
+                for i in range(9, 15):
+                    colors[k_v[i]] = util.saturate_color(colors[k_v[i]], 0.40)
+            else:
+                colors[k_v[1]] = util.darken_color(colors[k_v[1]], 0.25)
+                colors[k_v[2]] = util.darken_color(colors[k_v[2]], 0.25)
+                colors[k_v[3]] = util.darken_color(colors[k_v[3]], 0.25)
+                colors[k_v[4]] = util.darken_color(colors[k_v[4]], 0.25)
+                colors[k_v[5]] = util.darken_color(colors[k_v[5]], 0.25)
+                colors[k_v[6]] = util.darken_color(colors[k_v[6]], 0.25)
+
+
+def generic_adjust(colors, light, **kwargs):
+    """Generic color adjustment for themers.
+    :keyword-args:
+    -    c16 - [ "lighten" | "darken" ]
+    """
+    if "c16" in kwargs:
+        cols16 = kwargs["c16"]
+    else:
+        cols16 = False
+
     if light:
         for color in colors:
             color = util.saturate_color(color, 0.60)
             color = util.darken_color(color, 0.5)
 
-            colors[0] = util.lighten_color(colors[0], 0.95)
+        colors[0] = util.lighten_color(colors[0], 0.95)
         if cols16:
-            colors[7] = util.darken_color(colors[0], 0.50)
-            colors[8] = util.darken_color(colors[0], 0.25)
-            if cols16 == "lighten":
-                colors[9] = util.lighten_color(colors[1], 0.25)
-                colors[10] = util.lighten_color(colors[2], 0.25)
-                colors[11] = util.lighten_color(colors[3], 0.25)
-                colors[12] = util.lighten_color(colors[4], 0.25)
-                colors[13] = util.lighten_color(colors[5], 0.25)
-                colors[14] = util.lighten_color(colors[6], 0.25)
-                colors[15] = util.darken_color(colors[0], 0.75)
-            else:
-                colors[1] = util.darken_color(colors[1], 0.25)
-                colors[2] = util.darken_color(colors[2], 0.25)
-                colors[3] = util.darken_color(colors[3], 0.25)
-                colors[4] = util.darken_color(colors[4], 0.25)
-                colors[5] = util.darken_color(colors[5], 0.25)
-                colors[6] = util.darken_color(colors[6], 0.25)
-                colors[15] = util.darken_color(colors[0], 0.75)
-
+            shade_16(colors, light, cols16)
         else:
             colors[7] = util.darken_color(colors[0], 0.75)
             colors[8] = util.darken_color(colors[0], 0.25)
@@ -102,29 +158,21 @@ def generic_adjust(colors, light, cols16):
     else:
         if colors[0][1] != "0":  # the color may already be dark enough
             colors[0] = util.darken_color(colors[0], 0.40)  # just a bit darker
-        if cols16:
-            colors[7] = util.lighten_color(colors[0], 0.55)
-            colors[7] = util.saturate_color(colors[7], 0.05)
-            colors[8] = util.lighten_color(colors[0], 0.35)
-            colors[8] = util.saturate_color(colors[8], 0.10)
-            colors[15] = util.lighten_color(colors[0], 0.75)
-            if cols16 == "lighten":
-                colors[9] = util.lighten_color(colors[1], 0.25)
-                colors[10] = util.lighten_color(colors[2], 0.25)
-                colors[11] = util.lighten_color(colors[3], 0.25)
-                colors[12] = util.lighten_color(colors[4], 0.25)
-                colors[13] = util.lighten_color(colors[5], 0.25)
-                colors[14] = util.lighten_color(colors[6], 0.25)
-                for i in range(9, 15):
-                    colors[i] = util.saturate_color(colors[i], 0.40)
-            else:
-                colors[1] = util.darken_color(colors[1], 0.25)
-                colors[2] = util.darken_color(colors[2], 0.25)
-                colors[3] = util.darken_color(colors[3], 0.25)
-                colors[4] = util.darken_color(colors[4], 0.25)
-                colors[5] = util.darken_color(colors[5], 0.25)
-                colors[6] = util.darken_color(colors[6], 0.25)
 
+        saturate_more = False
+        if colors[0][1] == "0":  # the color may not be saturated enough
+            saturate_more = True
+        if colors[0][3] == "0":  # the color may not be saturated enough
+            saturate_more = True
+        if colors[0][5] == "0":  # the color may not be saturated enough
+            saturate_more = True
+
+        if saturate_more:
+            colors[0] = util.lighten_color(colors[0], 0.03)
+            colors[0] = util.saturate_color(colors[0], 0.40)
+
+        if cols16:
+            shade_16(colors, light, cols16)
         else:
             colors[7] = util.lighten_color(colors[0], 0.75)
             colors[8] = util.lighten_color(colors[0], 0.35)
@@ -136,10 +184,10 @@ def generic_adjust(colors, light, cols16):
 
 def saturate_colors(colors, amount):
     """Saturate all colors."""
-    if amount and float(amount) <= 1.0:
+    if amount and (float(amount) <= 1.0 and float(amount) >= -1.0):
         for i, _ in enumerate(colors):
-            if i not in [0, 7, 8, 15]:
-                colors[i] = util.saturate_color(colors[i], float(amount))
+            if i not in [7, 15]:
+                colors[i] = util.add_saturation(colors[i], float(amount))
 
     return colors
 
@@ -153,7 +201,8 @@ def brighten_colors(colors, min_brightness):
 
 
 def ensure_contrast(colors, contrast, light, image):
-    """Ensure user-specified W3 contrast of colors depending on dark or light theme."""
+    """Ensure user-specified W3 contrast of colors
+    depending on dark or light theme."""
     # If no contrast checking was specified, do nothing
     if not contrast or contrast == "":
         return colors
@@ -168,8 +217,9 @@ def ensure_contrast(colors, contrast, light, image):
     background_luminance = background_color.w3_luminance
 
     # Calculate the required W3 luminance for the desired contrast ratio
-    # This will modify all of the colors to be brighter or darker than the background
-    # image depending on whether the user has specified for a dark or light theme
+    # This will modify all of the colors to be brighter or darker than the
+    # background image depending on whether the user has specified for a
+    # dark or light theme
     try:
         if light:
             luminance_desired = (background_luminance + 0.05) / float(
@@ -191,7 +241,8 @@ def ensure_contrast(colors, contrast, light, image):
         return colors
 
     # Determine which colors should be modified / checked
-    # ! For the time being this is just going to modify all the colors except 0 and 15
+    # ! For the time being this is just going to modify all the colors except
+    # 0 and 15
     colors_to_contrast = range(1, 15)
 
     # Modify colors
@@ -210,8 +261,8 @@ def ensure_contrast(colors, contrast, light, image):
 
         # Determine how to modify the color based on its HSV characteristics
 
-        # If the color is to be lighter than background, and the HSV color with value 1
-        # has sufficient luminance, adjust by increasing value
+        # If the color is to be lighter than background, and the HSV color
+        # with value 1 has sufficient luminance, adjust by increasing value
         if (
             not light
             and util.Color(
@@ -227,13 +278,15 @@ def ensure_contrast(colors, contrast, light, image):
             colors[index] = binary_luminance_adjust(
                 luminance_desired, h, s, s, v, 1
             )
-        # If the color is to be lighter than background and increasing value to 1 doesn't
-        #  produce the desired luminance, additionally decrease saturation
+        # If the color is to be lighter than background and increasing value
+        # to 1 doesn't produce the desired luminance, additionally decrease
+        # saturation
         elif not light:
             colors[index] = binary_luminance_adjust(
                 luminance_desired, h, 0, s, 1, 1
             )
-        # If the color is to be darker than background, produce desired luminance by decreasing value, and raising saturation
+        # If the color is to be darker than background, produce desired
+        # luminance by decreasing value, and raising saturation
         else:
             colors[index] = binary_luminance_adjust(
                 luminance_desired, h, s, 1, 0, v
@@ -245,14 +298,16 @@ def ensure_contrast(colors, contrast, light, image):
 def binary_luminance_adjust(
     luminance_desired, hue, s_min, s_max, v_min, v_max, iterations=10
 ):
-    """Use a binary method to adjust a color's value and/or saturation to produce the desired luminance"""
+    """Use a binary method to adjust a color's value and/or
+    saturation to produce the desired luminance"""
     for i in range(iterations):
         # Obtain a new color by averaging saturation and value
         s = (s_min + s_max) / 2
         v = (v_min + v_max) / 2
 
         # Compare the luminance of this color to the target luminance
-        # If the color is too light, clamp the minimum saturation and maximum value
+        # If the color is too light, clamp the minimum saturation
+        # and maximum value
         if (
             util.Color(
                 util.rgb_to_hex(
@@ -266,7 +321,8 @@ def binary_luminance_adjust(
         ):
             s_min = s
             v_max = v
-        # If the color is too dark, clamp the maximum saturation and minimum value
+        # If the color is too dark, clamp the maximum saturation
+        # and minimum value
         else:
             s_max = s
             v_min = v
@@ -276,14 +332,26 @@ def binary_luminance_adjust(
     )
 
 
-def cache_fname(img, backend, cols16, light, cache_dir, sat="", contrast=""):
-    """Create the cache file name."""
+def cache_fname(img, backend, light, cache_dir, sat="", **kwargs):
+    """Create the cache file name.
+    :keyword-args:
+    -    c16: use 16 colors through specified method - [ "lighten" | "darken" ]
+    -    cst: palette contrast ratio - float
+    """
     color_type = "light" if light else "dark"
+    if "c16" in kwargs:
+        cols16 = kwargs["c16"]
+    else:
+        cols16 = False
+    if "cst" in kwargs:
+        contrast = kwargs["cst"]
+    else:
+        contrast = False
     color_num = "16" if cols16 else "9"
     file_name = re.sub("[/|\\|.]", "_", img)
     file_size = os.path.getsize(img)
 
-    if cols16:
+    if cols16 and contrast:
         file_parts = [
             file_name,
             color_num,
@@ -300,10 +368,25 @@ def cache_fname(img, backend, cols16, light, cache_dir, sat="", contrast=""):
             "schemes",
             "%s_%s_%s_%s_%s_%s_%s_%s_%s.json" % (*file_parts,),
         ]
-    else:
+    if cols16 and (not contrast):
         file_parts = [
             file_name,
             color_num,
+            cols16,
+            color_type,
+            backend,
+            sat,
+            file_size,
+            __cache_version__,
+        ]
+        return [
+            cache_dir,
+            "schemes",
+            "%s_%s_%s_%s_%s_%s_%s_%s.json" % (*file_parts,),
+        ]
+    if (not cols16) and contrast:
+        file_parts = [
+            file_name,
             color_type,
             backend,
             sat,
@@ -314,7 +397,21 @@ def cache_fname(img, backend, cols16, light, cache_dir, sat="", contrast=""):
         return [
             cache_dir,
             "schemes",
-            "%s_%s_%s_%s_%s_%s_%s_%s.json" % (*file_parts,),
+            "%s_%s_%s_%s_%s_%s_%s.json" % (*file_parts,),
+        ]
+    else:
+        file_parts = [
+            file_name,
+            color_type,
+            backend,
+            sat,
+            file_size,
+            __cache_version__,
+        ]
+        return [
+            cache_dir,
+            "schemes",
+            "%s_%s_%s_%s_%s_%s.json" % (*file_parts,),
         ]
 
 
@@ -345,21 +442,35 @@ def palette():
 def get(
     img,
     light=False,
-    cols16=False,
     backend="wal",
     cache_dir=CACHE_DIR,
     sat="",
-    contrast="",
+    **kwargs,
 ):
-    """Generate a palette."""
+    """Generate a palette.
+    :keyword-args:
+    -    c16: use 16 colors through specified method - [ "lighten" | "darken" ]
+    -    cst: apply contrast ratio to palette        - float
+    """
+    if "c16" in kwargs:
+        cols16 = kwargs["c16"]
+    else:
+        cols16 = False
+    if "cst" in kwargs:
+        contrast = kwargs["cst"]
+    else:
+        contrast = ""
+
     # home_dylan_img_jpg_backend_1.2.2.json
     if not contrast or contrast == "":
         cache_name = cache_fname(
-            img, backend, cols16, light, cache_dir, sat, "None"
+            img, backend, light, cache_dir, sat,
+            c16=cols16
         )
     else:
         cache_name = cache_fname(
-            img, backend, cols16, light, cache_dir, sat, float(contrast)
+            img, backend, light, cache_dir, sat,
+            c16=cols16, cst=float(contrast)
         )
 
     cache_file = os.path.join(*cache_name)
@@ -369,7 +480,6 @@ def get(
         "checksum"
     ] == util.get_img_checksum(img):
         colors = theme.file(cache_file)
-        colors["alpha"] = util.Color.alpha_num
         logging.info("Found cached colorscheme.")
 
     else:
@@ -386,7 +496,9 @@ def get(
 
         logging.info("Using %s backend.", backend)
         backend = sys.modules["pywal.backends.%s" % backend]
-        colors = getattr(backend, "get")(img, light, cols16)
+        colors = getattr(backend, "get")(img, light, c16=cols16)
+
+        # Post-processing steps from command-line arguments
         colors = saturate_colors(colors, sat)
         colors = brighten_colors(colors, 0.5)
         # for color in colors:

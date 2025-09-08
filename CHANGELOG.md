@@ -7,6 +7,113 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [3.8.9] - 2025-05-31
+Fixes:
+- Fix the fix that was not fixed with `--out-dir`.
+
+## [3.8.8] - 2025-05-31
+Fixes:
+- Error during color export.
+
+## [3.8.7] - 2025-05-31
+Fixes:
+- Ensure alpha value is the correct type and is within valid range.
+- Increase saturation of very dark theme background colors.
+
+New:
+- Prefer the alpha value from flag over the theme alpha.
+- Allow the `--saturate` flag to affect colors 0 and 8.
+- Added the `--out-dir` flag to allow changing export dir, it overrides the value of '$PYWAL_CACHE_DIR'.
+
+## [3.8.6] - 2025-04-14
+Fixes:
+- `pywal` no longer crashes on windows when `colorama` is not present.
+
+## [3.8.5] - 2025-03-31
+New:
+- Added tokyonight colorschemes.
+- Set `alpha_num` value from command line even when loading theme files.
+- Added mechanism to live reload nvim colors through `nvim-colo-reload`.
+
+## [3.8.4] - 2025-03-25
+New:
+- Added rosepine colorschemes.
+- Support reloading of mako.
+
+## [3.8.3] - 2025-03-16
+New:
+- `retroarch` rgui colors template.
+- `termux` support.
+
+Fixes:
+- `KDE` 6.3.3 error where pywal would crash upon failing to set the wallpaper.
+
+## [3.8.2] - 2025-03-03
+Fixes:
+- Hyprland and Hyprpaper support actually this time.
+
+    New:
+- Fuzzel template.
+- Tofi template.
+- Mako template.
+- Zathura template.
+- webp image format support.
+
+## [3.8.1] - 2025-02-23
+Fixes:
+- Hyprland and Hyprpaper support working properly.
+
+New:
+- Hyprland colors template.
+- dwl colors template.
+- Added support for `wbg`.
+- Added catpuccin colorschemes.
+
+## [3.8.0] - 2025-02-15
+
+New features:
+- Added Dynamic shade conversion, using the `--cols16` flag will convert 9 shades themes to 16 shades.
+- Added Nested template directories, subdirectories with templates can be created inside the templates dir.
+- Added support for pywalfox.
+- Added support for waybar.
+- Added support for hyprpaper.
+- Added Dracula colorschemes.
+- Added ghostty template.
+- Added base16-kanagawa colorscheme.
+- Added color template for dwm urgent window patch.
+
+Bug fixes and Improvements:
+- Better colors for Fish.
+- Restrict colorama import only to ms windows.
+- Change dwm selection background to match dmenu.
+
+Removals:
+- gtk reloading, python 2 is obsolete and that method worked only for gtk2.
+
+## [3.7.2] - 2024-11-29
+
+- make color.get and color.cache_fname API more backwards compatible.
+
+## [3.7.1] - 2024-11-27
+
+- Use test_file3.json in test_export.py.
+
+## [3.7.0] - 2024-11-27
+
+- Added `foot` terminal emulator template.
+- Added `zed` template.
+- Remove redundant template `colors.hs`.
+- Add `--contrast` option.
+- Enable MS Windows color output.
+- Use kwargs for the cols16 and contrast internal API.
+- Improved info log to include template directory paths.
+- Add optional dependencies to setup.py.
+- Made `checksum` available to the colorscheme dict.
+- Added `adjust_alpha` function to be used in templates.
+- Added support for MacOS Sonoma.
+- Added manpage `wa.1`.
+- Changed formatting to use `BLACK` formatter.
+
 ## [3.6.0] - 2024-07-04
 
 - Fixed empty message on KDE plasma when sending sequences.
@@ -781,7 +888,20 @@ Note to self: Don't flag releases before coffee.
 
 
 
-[Unreleased]: https://github.com/eylles/pywal16/compare/3.6.0...HEAD
+[Unreleased]: https://github.com/eylles/pywal16/compare/3.8.9...HEAD
+[3.8.9]: https://github.com/eylles/pywal16/compare/3.8.8...3.8.9
+[3.8.8]: https://github.com/eylles/pywal16/compare/3.8.7...3.8.8
+[3.8.7]: https://github.com/eylles/pywal16/compare/3.8.6...3.8.7
+[3.8.6]: https://github.com/eylles/pywal16/compare/3.8.5...3.8.6
+[3.8.5]: https://github.com/eylles/pywal16/compare/3.8.4...3.8.5
+[3.8.4]: https://github.com/eylles/pywal16/compare/3.8.3...3.8.4
+[3.8.3]: https://github.com/eylles/pywal16/compare/3.8.2...3.8.3
+[3.8.2]: https://github.com/eylles/pywal16/compare/3.8.1...3.8.2
+[3.8.1]: https://github.com/eylles/pywal16/compare/3.8.0...3.8.1
+[3.8.0]: https://github.com/eylles/pywal16/compare/3.7.2...3.8.0
+[3.7.2]: https://github.com/eylles/pywal16/compare/3.7.1...3.7.2
+[3.7.1]: https://github.com/eylles/pywal16/compare/3.7.0...3.7.1
+[3.7.0]: https://github.com/eylles/pywal16/compare/3.6.0...3.7.0
 [3.6.0]: https://github.com/eylles/pywal16/compare/3.5.4...3.6.0
 [3.5.4]: https://github.com/eylles/pywal16/compare/3.5.3...3.5.4
 [3.5.3]: https://github.com/eylles/pywal16/compare/3.5.2...3.5.3

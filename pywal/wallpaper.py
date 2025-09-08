@@ -85,6 +85,10 @@ def set_wm_wallpaper(img):
     elif shutil.which("feh"):
         util.disown(["feh", "--bg-fill", img])
 
+    elif shutil.which("wbg"):
+        subprocess.call(["killall", "wbg"])
+        util.disown(["wbg", img])
+
     elif shutil.which("xwallpaper"):
         util.disown(["xwallpaper", "--zoom", img])
 
@@ -171,15 +175,28 @@ def set_desktop_wallpaper(desktop, img):
             d.currentConfigGroup = Array("Wallpaper", "org.kde.image",
             "General");d.writeConfig("Image", "%s")};
         """
+        if shutil.which("qdbus6"):
+            use_qdbus = "qdbus6"
+        elif shutil.which("qdbus5"):
+            use_qdbus = "qdbus5"
+        elif shutil.which("qdbus"):
+            use_qdbus = "qdbus"
+        else:
+            logging.error("No qdbus6, qdbus5 or qdbus binary found")
+            return
         util.disown(
             [
-                "qdbus",
+                use_qdbus,
                 "org.kde.plasmashell",
                 "/PlasmaShell",
                 "org.kde.PlasmaShell.evaluateScript",
                 string % img,
             ]
         )
+
+    elif "hyprland" in desktop and shutil.which("hyprpaper"):
+        util.disown(["hyprctl", "hyprpaper", "preload ", img])
+        util.disown(["hyprctl", "hyprpaper", "wallpaper", ", " + img])
     else:
         set_wm_wallpaper(img)
 
@@ -190,22 +207,22 @@ def set_mac_wallpaper(img):
     db_path = os.path.join(HOME, db_file)
 
     # Fresh installs of Sonoma will not have this file.
-    # Check if file exists to make backwards compatibility forwards compatable.
+    # Check if file exists to make backwards compatibility forwards compatible.
     if os.path.isfile(db_path):
 
         # Put the image path in the database
-        sql = "insert into data values(\"%s\"); " % img
+        sql = 'insert into data values("%s"); ' % img
         subprocess.call(["sqlite3", db_path, sql])
 
         # Get the index of the new entry
         sql = "select max(rowid) from data;"
         new_entry = subprocess.check_output(["sqlite3", db_path, sql])
-        new_entry = new_entry.decode('utf8').strip('\n')
+        new_entry = new_entry.decode("utf8").strip("\n")
 
         # Get all picture ids (monitor/space pairs)
-        get_pics_cmd = ['sqlite3', db_path, "select rowid from pictures;"]
+        get_pics_cmd = ["sqlite3", db_path, "select rowid from pictures;"]
         pictures = subprocess.check_output(get_pics_cmd)
-        pictures = pictures.decode('utf8').split('\n')
+        pictures = pictures.decode("utf8").split("\n")
 
         # Clear all existing preferences
         sql += "delete from preferences; "
@@ -213,8 +230,8 @@ def set_mac_wallpaper(img):
         # Write all pictures to the new image
         for pic in pictures:
             if pic:
-                sql += 'insert into preferences (key, data_id, picture_id) '
-                sql += 'values(1, %s, %s); ' % (new_entry, pic)
+                sql += "insert into preferences (key, data_id, picture_id) "
+                sql += "values(1, %s, %s); " % (new_entry, pic)
 
         subprocess.call(["sqlite3", db_path, sql])
 
@@ -224,56 +241,103 @@ def set_mac_wallpaper(img):
         # used instead.
         subprocess.call(["killall", "Dock"])
 
+    # MacOS Sonomoa uses a plist file instead.  Interestingly the database
+    # referenced above still exists, but doesn't seem to do anyything on Sonoma
+    # so lets leave it for backward compatatility
 
-    # MacOS Sonomoa uses a plist file instead.  Interestingly the database referenced above
-    # still exists, but doesn't seem to do anyything on Sonoma, so lets leave it for backward
-    # compatability
-
-    plist_path = "Library/Application Support/com.apple.wallpaper/Store/Index.plist"
+    plist_path = (
+        "Library/Application Support/com.apple.wallpaper/Store/Index.plist"
+    )
     plist_path = os.path.join(HOME, plist_path)
 
     # Write a backup of plist file in temp in case something horrific happens
-    with open(plist_path, 'rb') as f:
+    with open(plist_path, "rb") as f:
         old_plist = plistlib.load(f)
-        with tempfile.NamedTemporaryFile(prefix="pywal-plist-bk-", delete=False) as g:
+        with tempfile.NamedTemporaryFile(
+            prefix="pywal-plist-bk-", delete=False
+        ) as g:
             logging.info(f"Backup plist file saved to {g.name}")
             plistlib.dump(old_plist, g)
 
     # Unfortunately these fields seem mandatory.  not extensively tested
     # - Configuration is a plist unto itself and a value is required
-    with open(plist_path, 'wb') as f:
-        new_plist = {'Spaces': {},
-         'SystemDefault': {'Desktop': {'LastSet': datetime.datetime.now(),
-           'LastUse': datetime.datetime.now(),
-           'Content': {'Choices': [{'Provider': 'com.apple.wallpaper.choice.image',
-              'Files': [{'relative': f'file:///{img}'}],
-              'Configuration': b''}],
-            'Shuffle': '$null'}},
-          'Type': 'individual',
-          'Idle': {'LastSet': datetime.datetime.now(),
-           'LastUse': datetime.datetime(2023, 10, 21, 2, 51, 4, 435303),
-           'Content': {'Choices': [{'Provider': 'com.apple.wallpaper.choice.aerials',
-              'Files': [],
-              'Configuration': b''}],
-            'Shuffle': {'Type': 'afterDuration',
-             'Duration': [2341, 16172123445939666944]}}}},
-         'Displays': {},
-         'AllSpacesAndDisplays': {'Desktop': {'LastSet': datetime.datetime.now(),
-           'LastUse': datetime.datetime.now(),
-           'Content': {'Choices': [{'Provider': 'com.apple.wallpaper.choice.image',
-              'Files': [{'relative': f'file:///{img}'}],
-              'Configuration': b'bplist00\xd2\x01\x02\x03\x0c_\x10\x0fbackgroundColorYplacement\xd2\x04\x05\x06\x0bZcomponentsZcolorSpace\xa4\x07\x08\t\n#?\xd0PPPPPP#?\xdaZZZZZZ#?\xe5UUUUUU#?\xf0\x00\x00\x00\x00\x00\x00O\x10Cbplist00_\x10\x17kCGColorSpaceGenericRGB\x08\x00\x00\x00\x00\x00\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"\x10\x01\x08\r\x1f).9DIR[dm\xb3\x00\x00\x00\x00\x00\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb5'}],
-            'Shuffle': '$null'},
-           'Last': datetime.datetime.now()},
-          'Type': 'individual',
-          'Idle': {'LastSet': datetime.datetime.now(),
-           'LastUse': datetime.datetime.now(),
-           'Content': {'Choices': [{'Provider': 'com.apple.wallpaper.choice.aerials',
-              'Files': [],
-              'Configuration': b''}],
-            'Shuffle': {'Type': 'afterDuration',
-             'Duration': [2341, 16172123445939666944]}}}}}
-        plistlib.dump(new_plist,f)
+    with open(plist_path, "wb") as f:
+        new_plist = {
+            "Spaces": {},
+            "SystemDefault": {
+                "Desktop": {
+                    "LastSet": datetime.datetime.now(),
+                    "LastUse": datetime.datetime.now(),
+                    "Content": {
+                        "Choices": [
+                            {
+                                "Provider": "com.apple.wallpaper.choice.image",
+                                "Files": [{"relative": f"file:///{img}"}],
+                                "Configuration": b"",
+                            }
+                        ],
+                        "Shuffle": "$null",
+                    },
+                },
+                "Type": "individual",
+                "Idle": {
+                    "LastSet": datetime.datetime.now(),
+                    "LastUse": datetime.datetime(
+                        2023, 10, 21, 2, 51, 4, 435303
+                    ),
+                    "Content": {
+                        "Choices": [
+                            {
+                                "Provider": "com.apple.wallpaper.choice.aerials",
+                                "Files": [],
+                                "Configuration": b"",
+                            }
+                        ],
+                        "Shuffle": {
+                            "Type": "afterDuration",
+                            "Duration": [2341, 16172123445939666944],
+                        },
+                    },
+                },
+            },
+            "Displays": {},
+            "AllSpacesAndDisplays": {
+                "Desktop": {
+                    "LastSet": datetime.datetime.now(),
+                    "LastUse": datetime.datetime.now(),
+                    "Content": {
+                        "Choices": [
+                            {
+                                "Provider": "com.apple.wallpaper.choice.image",
+                                "Files": [{"relative": f"file:///{img}"}],
+                                "Configuration": b'bplist00\xd2\x01\x02\x03\x0c_\x10\x0fbackgroundColorYplacement\xd2\x04\x05\x06\x0bZcomponentsZcolorSpace\xa4\x07\x08\t\n#?\xd0PPPPPP#?\xdaZZZZZZ#?\xe5UUUUUU#?\xf0\x00\x00\x00\x00\x00\x00O\x10Cbplist00_\x10\x17kCGColorSpaceGenericRGB\x08\x00\x00\x00\x00\x00\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"\x10\x01\x08\r\x1f).9DIR[dm\xb3\x00\x00\x00\x00\x00\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb5',
+                            }
+                        ],
+                        "Shuffle": "$null",
+                    },
+                    "Last": datetime.datetime.now(),
+                },
+                "Type": "individual",
+                "Idle": {
+                    "LastSet": datetime.datetime.now(),
+                    "LastUse": datetime.datetime.now(),
+                    "Content": {
+                        "Choices": [
+                            {
+                                "Provider": "com.apple.wallpaper.choice.aerials",
+                                "Files": [],
+                                "Configuration": b"",
+                            }
+                        ],
+                        "Shuffle": {
+                            "Type": "afterDuration",
+                            "Duration": [2341, 16172123445939666944],
+                        },
+                    },
+                },
+            },
+        }
+        plistlib.dump(new_plist, f)
         f.close()
     subprocess.call(["killall", "WallpaperAgent"])
 
