@@ -439,12 +439,33 @@ def palette():
     print("\n")
 
 
+def palette_absolute(colors):
+    """Generate a palette from absolute color values.
+    
+    Args:
+        colors: List of hex color strings (e.g., ['#000000', '#ff0000', ...])
+    """
+    for i, color in enumerate(colors):
+        if i % 8 == 0:
+            print()
+
+        # Convert hex to RGB
+        r, g, b = util.hex_to_rgb(color)
+        
+        # Use RGB escape codes for true color display
+        print("\033[48;2;%d;%d;%dm%s\033[0m" % (r, g, b, " " * (80 // 20)), end="")
+
+    print("\n")
+
+
 def get(
     img,
     light=False,
     backend="wal",
     cache_dir=CACHE_DIR,
     sat="",
+    ansi_match=False,
+    no_cache=False,
     **kwargs,
 ):
     """Generate a palette.
@@ -476,7 +497,7 @@ def get(
     cache_file = os.path.join(*cache_name)
 
     # Check the wallpaper's checksum against the cache'
-    if os.path.isfile(cache_file) and theme.parse(cache_file)[
+    if not no_cache and os.path.isfile(cache_file) and theme.parse(cache_file)[
         "checksum"
     ] == util.get_img_checksum(img):
         colors = theme.file(cache_file)
@@ -496,11 +517,19 @@ def get(
 
         logging.info("Using %s backend.", backend)
         backend = sys.modules["pywal.backends.%s" % backend]
-        colors = getattr(backend, "get")(img, light, c16=cols16)
+        colors = getattr(backend, "get")(img, light, c16=cols16, ansi_match=ansi_match)
+        
+        print("Backend generated colors:")
+        palette_absolute(colors)
 
         # Post-processing steps from command-line arguments
         colors = saturate_colors(colors, sat)
-        colors = brighten_colors(colors, 0.5)
+        if sat:
+            print("After saturation adjustment:")
+            palette_absolute(colors)
+        colors = brighten_colors(colors, 0.4)
+        print("After brightness adjustment:")
+        palette_absolute(colors)
         # for color in colors:
         #     r, g, b = util.hex_to_rgb(color)
         #     h, s, v = colorsys.rgb_to_hsv(r, g, b)
@@ -509,6 +538,9 @@ def get(
         # # Post-processing steps from command-line arguments
         # colors = saturate_colors(colors, sat)
         colors = ensure_contrast(colors, contrast, light, img)
+        if contrast:
+            print("After contrast adjustment:")
+            palette_absolute(colors)
 
         colors = colors_to_dict(colors, img)
         util.save_file_json(colors, cache_file)

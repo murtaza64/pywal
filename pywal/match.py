@@ -78,15 +78,15 @@ def get_closest_target(color):
 def get_closest_palette_color(target, palette):
     closest = None
     closest_distance = float('inf')
-    print('finding closest palette color to', target)
+    logging.debug('finding closest palette color to', target)
     for color in palette:
         # h, _, _ = rgb_to_hsv(*color)
         # distance = circle_distance(h, hue)
-        print_colored_square(*color)
-        print_colored_square(*color)
+        # print_colored_square(*color)
+        # print_colored_square(*color)
         hsv = rgb_to_hsv(*color)
         distance = color_distance(hsv, TARGET_COLORS[target])
-        print(distance)
+        # print(distance)
         if distance < closest_distance:
             closest_distance = distance
             closest = color
@@ -162,10 +162,10 @@ def interpolate_hue(color_map, target: str):
     new_s = (s + s2) / 2
     new_v = (v + v2) / 2
     new_color = tuple(int(p) for p in hsv_to_rgb(new_h, new_s, new_v))
-    print("interpolated between", next_name, "and", prev_name, "to get", target, "color:")
-    print_colored_square(*new_color)
-    print_colored_square(*new_color)
-    print(' ', new_color)
+    logging.debug("interpolated between", next_name, "and", prev_name, "to get", target, "color:")
+    # print_colored_square(*new_color)
+    # print_colored_square(*new_color)
+    # print(' ', new_color)
     return new_color
 
 def offset_target_hue(h, target_h, push_amount=0.15):
@@ -187,14 +187,17 @@ def interpolate_by_avg_sv(color_map, target: str, tolerance):
     avg_s = avg_s/2
     avg_v = avg_v * 0.8
     new_color = tuple(p for p in hsv_to_rgb(new_h, avg_s, avg_v))
-    print("interpolated by avg s and v to get", target, "color:", end='')
-    print_colored_square(*new_color)
-    print_colored_square(*new_color)
-    print()
+    logging.debug("interpolated by avg s and v to get", target, "color:", end='')
+    # print_colored_square(*new_color)
+    # print_colored_square(*new_color)
+    # print()
     return new_color
 
 def fix_bad_colors(color_map):
+    targets_to_fix = ["red", "yellow", "green"]
     for target, color in color_map.items():
+        if target not in targets_to_fix:
+            continue
         target_hue = TARGET_HUES[target]
         h, s, v = rgb_to_hsv(*color)
         tol = HUE_TOLERANCES[target]
@@ -220,7 +223,7 @@ def rearrange_palette(raw_palette: List[Tuple[int, int, int]]):
     black = colors[0]
     white = colors[-1]
     colors = [(r/255, g/255, b/255) for (r, g, b) in colors]
-    print(colors)
+    logging.debug(colors)
     colors = colors[1:-1]
     palette = [color for color in colors if not is_greyish(*color)]
     assert len(palette) >= 6, "too many greyish colors"

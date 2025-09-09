@@ -223,6 +223,18 @@ def get_args():
         "typically work best.",
     )
 
+    arg.add_argument(
+        "--ansi-match",
+        action="store_true",
+        help="Rearrange palette to match ANSI colors using color-matching algorithm.",
+    )
+
+    arg.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Skip looking for cached colorschemes and always regenerate.",
+    )
+
     return arg
 
 
@@ -297,6 +309,8 @@ def parse_args(parser):
             args.l,
             args.backend,
             sat=args.saturate,
+            ansi_match=args.ansi_match,
+            no_cache=args.no_cache,
             c16=args.cols16,
             cst=args.contrast,
         )
@@ -316,6 +330,8 @@ def parse_args(parser):
             args.l,
             args.backend,
             sat=args.saturate,
+            ansi_match=args.ansi_match,
+            no_cache=args.no_cache,
             c16=args.cols16,
             cst=args.contrast,
         )
