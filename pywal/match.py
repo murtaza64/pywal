@@ -218,6 +218,38 @@ def categorize_palette(colors):
         d = color_distance(hsv, target_hsv)
         print(' ', target, hue, f'{d:.2f}')
 
+def get_ansi_color_mapping(raw_palette: List[str]) -> dict:
+    """Get a mapping of ANSI color names to hex colors from a palette.
+    
+    Args:
+        raw_palette: List of hex color strings
+        
+    Returns:
+        dict: Mapping of color names (red, green, etc.) to hex colors
+    """
+    colors = [util.hex_to_rgb(color) for color in raw_palette]
+    black = colors[0]
+    white = colors[-1]
+    colors = [(r/255, g/255, b/255) for (r, g, b) in colors]
+    logging.debug(colors)
+    colors = colors[1:-1]
+    palette = [color for color in colors if not is_greyish(*color)]
+    assert len(palette) >= 6, "too many greyish colors"
+    categorize_palette(palette)
+    palette = choose_colors_for_each_target2(palette)
+    fix_bad_colors(palette)
+    
+    # Convert back to hex and create mapping
+    ansi_mapping = {}
+    for color_name, (r, g, b) in palette.items():
+        ansi_mapping[color_name] = util.rgb_to_hex((round(r*255), round(g*255), round(b*255)))
+    
+    # Add black and white
+    ansi_mapping["black"] = util.rgb_to_hex(black)
+    ansi_mapping["white"] = util.rgb_to_hex(white)
+    
+    return ansi_mapping
+
 def rearrange_palette(raw_palette: List[Tuple[int, int, int]]):
     colors = [util.hex_to_rgb(color) for color in raw_palette]
     black = colors[0]

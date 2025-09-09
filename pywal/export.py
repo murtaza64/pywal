@@ -94,6 +94,11 @@ def flatten_colors(colors):
         **colors["special"],
         **colors["colors"],
     }
+    
+    # Include ANSI colors if they exist
+    if "ansi" in colors:
+        all_colors.update(colors["ansi"])
+    
     return {k: util.Color(v) for k, v in all_colors.items()}
 
 

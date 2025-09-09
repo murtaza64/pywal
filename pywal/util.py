@@ -14,6 +14,13 @@ import sys
 import hashlib
 import copy
 
+
+def print_color_change(old_color, new_color, operation):
+    """Print a color change with visual representation."""
+    r1, g1, b1 = hex_to_rgb(old_color)
+    r2, g2, b2 = hex_to_rgb(new_color)
+    print(f"    {operation}: \033[48;2;{r1};{g1};{b1}m  \033[0m {old_color} -> \033[48;2;{r2};{g2};{b2}m  \033[0m {new_color}")
+
 has_fcntl = False
 fcntl_warning = ""
 
@@ -298,16 +305,24 @@ def rgb_to_hex(color):
     return "#%02x%02x%02x" % (*color,)
 
 
-def darken_color(color, amount):
+def darken_color(color, amount, debug=False):
     """Darken a hex color."""
-    color = [int(col * (1 - amount)) for col in hex_to_rgb(color)]
-    return rgb_to_hex(color)
+    old_color = color
+    new_color_rgb = [int(col * (1 - amount)) for col in hex_to_rgb(color)]
+    new_color = rgb_to_hex(new_color_rgb)
+    if debug:
+        print_color_change(old_color, new_color, f"darken({amount})")
+    return new_color
 
 
-def lighten_color(color, amount):
+def lighten_color(color, amount, debug=False):
     """Lighten a hex color."""
-    color = [int(col + (255 - col) * amount) for col in hex_to_rgb(color)]
-    return rgb_to_hex(color)
+    old_color = color
+    new_color_rgb = [int(col + (255 - col) * amount) for col in hex_to_rgb(color)]
+    new_color = rgb_to_hex(new_color_rgb)
+    if debug:
+        print_color_change(old_color, new_color, f"lighten({amount})")
+    return new_color
 
 
 def alpha_integrify(alpha_value):
@@ -341,10 +356,11 @@ def blend_color(color, color2):
     return rgb_to_hex((r3, g3, b3))
 
 
-def saturate_color(color, amount):
+def saturate_color(color, amount, debug=False):
     """Change saturation of a hex color to passed value.
 
     new_saturation = amount"""
+    old_color = color
     r, g, b = hex_to_rgb(color)
     r, g, b = [x / 255.0 for x in (r, g, b)]
     h, l, s = colorsys.rgb_to_hls(r, g, b)
@@ -352,10 +368,14 @@ def saturate_color(color, amount):
     r, g, b = colorsys.hls_to_rgb(h, l, s)
     r, g, b = [x * 255.0 for x in (r, g, b)]
 
-    return rgb_to_hex((int(r), int(g), int(b)))
+    new_color = rgb_to_hex((int(r), int(g), int(b)))
+    if debug:
+        print_color_change(old_color, new_color, f"saturate({amount})")
+    return new_color
 
-def brighten_color(color, min_brightness):
+def brighten_color(color, min_brightness, debug=False):
     """Brighten a hex color."""
+    old_color = color
     r, g, b = hex_to_rgb(color)
     r, g, b = [x / 255.0 for x in (r, g, b)]
     h, l, s = colorsys.rgb_to_hls(r, g, b)
@@ -363,13 +383,17 @@ def brighten_color(color, min_brightness):
     r, g, b = colorsys.hls_to_rgb(h, l, s)
     r, g, b = [x * 255.0 for x in (r, g, b)]
 
-    return rgb_to_hex((int(r), int(g), int(b)))
+    new_color = rgb_to_hex((int(r), int(g), int(b)))
+    if debug:
+        print_color_change(old_color, new_color, f"brighten({min_brightness})")
+    return new_color
 
 
-def add_saturation(color, amount):
+def add_saturation(color, amount, debug=False):
     """Add saturation to a hex color.
 
     new_saturation = color_saturation + amount"""
+    old_color = color
     r, g, b = hex_to_rgb(color)
     r, g, b = [x / 255.0 for x in (r, g, b)]
     h, l, s = colorsys.rgb_to_hls(r, g, b)
@@ -381,7 +405,10 @@ def add_saturation(color, amount):
     r, g, b = colorsys.hls_to_rgb(h, l, s)
     r, g, b = [x * 255.0 for x in (r, g, b)]
 
-    return rgb_to_hex((int(r), int(g), int(b)))
+    new_color = rgb_to_hex((int(r), int(g), int(b)))
+    if debug:
+        print_color_change(old_color, new_color, f"add_saturation({amount})")
+    return new_color
 
 
 def rgb_to_yiq(color):

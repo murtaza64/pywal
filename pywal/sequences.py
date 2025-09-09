@@ -44,10 +44,37 @@ def create_sequences(colors, vte_fix=False):
     alpha = colors["alpha"]
 
     # Colors 0-15.
-    sequences = [
-        set_color(index, colors["colors"]["color%s" % index])
-        for index in range(16)
-    ]
+    # Use ANSI semantic colors if available, otherwise fall back to indexed colors
+    if "ansi" in colors:
+        print("Using ANSI semantic colors for terminal sequences:")
+        # Map semantic colors to their ANSI positions
+        ansi_colors = colors["ansi"]
+        sequences = [
+            set_color(0, ansi_colors["black"]),      # color0 - black
+            set_color(1, ansi_colors["red"]),        # color1 - red  
+            set_color(2, ansi_colors["green"]),      # color2 - green
+            set_color(3, ansi_colors["yellow"]),     # color3 - yellow
+            set_color(4, ansi_colors["blue"]),       # color4 - blue
+            set_color(5, ansi_colors["magenta"]),    # color5 - magenta
+            set_color(6, ansi_colors["cyan"]),       # color6 - cyan
+            set_color(7, ansi_colors["white"]),      # color7 - white
+        ]
+        # For colors 8-15 (bright colors), use ANSI bright colors if available
+        bright_names = ["bright_black", "bright_red", "bright_green", "bright_yellow", 
+                       "bright_blue", "bright_magenta", "bright_cyan", "bright_white"]
+        
+        for index in range(8, 16):
+            bright_name = bright_names[index - 8]
+            if bright_name in ansi_colors:
+                sequences.append(set_color(index, ansi_colors[bright_name]))
+            else:
+                sequences.append(set_color(index, colors["colors"]["color%s" % index]))
+    else:
+        print("Using indexed colors for terminal sequences:")
+        sequences = [
+            set_color(index, colors["colors"]["color%s" % index])
+            for index in range(16)
+        ]
 
     # Special colors.
     # Source: https://goo.gl/KcoQgP

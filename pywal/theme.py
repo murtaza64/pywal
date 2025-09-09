@@ -11,6 +11,16 @@ from .settings import CACHE_DIR, CONF_DIR, MODULE_DIR
 from . import util
 from . import colors
 
+# Add cache directory to Python path so we can import colors directly
+if CACHE_DIR not in sys.path:
+    sys.path.insert(0, CACHE_DIR)
+
+# Try to import generated colors template
+try:
+    from colors import colors as pywal_colors
+except ImportError:
+    pywal_colors = None  # Template not generated yet
+
 
 def list_out():
     """List all themes in a pretty format."""

@@ -15,6 +15,15 @@ from . import util
 from .settings import CACHE_DIR, MODULE_DIR, __cache_version__
 
 
+def print_color(color, label=""):
+    """Print a color with its visual representation in the terminal."""
+    r, g, b = util.hex_to_rgb(color)
+    if label:
+        print(f"{label}: \033[48;2;{r};{g};{b}m  \033[0m {color}")
+    else:
+        print(f"\033[48;2;{r};{g};{b}m  \033[0m {color}")
+
+
 def list_backends():
     """List color backends."""
     return [
@@ -34,9 +43,11 @@ def normalize_img_path(img: str):
     return img
 
 
-def colors_to_dict(colors, img):
+def colors_to_dict(colors, img, ansi_match=False, light=False, **kwargs):
     """Convert list of colors to pywal format."""
-    return {
+    from . import match
+    
+    color_dict = {
         "checksum": util.get_img_checksum(img),
         "wallpaper": normalize_img_path(img),
         "alpha": util.Color.alpha_num,
@@ -64,6 +75,72 @@ def colors_to_dict(colors, img):
             "color15": colors[15],
         },
     }
+    
+    if ansi_match:
+        ansi_mapping = match.get_ansi_color_mapping(colors[:8])
+        print(f"ANSI color mapping:")
+        # Print in standard ANSI color order: black, red, green, yellow, blue, magenta, cyan, white
+        ansi_order = ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
+        ansi_values = [ansi_mapping[key] for key in ansi_order]
+        palette_absolute(ansi_values)
+        
+        # Generate bright variants of ANSI colors
+        ansi_bright = {
+            "bright_black": colors[8],    # Use processed color8
+            "bright_white": colors[15],   # Use processed color15
+        }
+        
+        # Apply 16-color shading logic to middle colors
+        middle_colors = ["red", "green", "yellow", "blue", "magenta", "cyan"]
+        for color_name in middle_colors:
+            base_color = ansi_mapping[color_name]
+            if light:
+                if "c16" in kwargs and kwargs["c16"] == "lighten":
+                    bright_color = util.lighten_color(base_color, 0.25)
+                    bright_color = util.saturate_color(bright_color, 0.40)
+                else:  # darken mode
+                    bright_color = util.darken_color(base_color, 0.25) 
+            else:  # dark theme
+                bright_color = util.lighten_color(base_color, 0.25)
+            
+            ansi_bright[f"bright_{color_name}"] = bright_color
+        
+        # Add bright colors to ANSI mapping
+        ansi_mapping.update(ansi_bright)
+        
+        print(f"ANSI bright colors:")
+        # Print in same order as base ANSI colors: black, red, green, yellow, blue, magenta, cyan, white
+        bright_order = ["bright_black", "bright_red", "bright_green", "bright_yellow", 
+                       "bright_blue", "bright_magenta", "bright_cyan", "bright_white"]
+        bright_values = [ansi_bright[key] for key in bright_order]
+        palette_absolute(bright_values)
+        
+        color_dict["ansi"] = ansi_mapping
+    
+    # Show complete palette overview
+    print("\n=== COMPLETE PALETTE OVERVIEW ===")
+    
+    # Terminal colors (ANSI) - two rows of 8
+    if "ansi" in color_dict:
+        print("Terminal colors (ANSI format):")
+        ansi_normal = [color_dict["ansi"][key] for key in ansi_order]
+        ansi_bright = [color_dict["ansi"][key] for key in bright_order]
+        palette_absolute(ansi_normal + ansi_bright)
+    
+    # Regular numbered colors (0-15)
+    print("Regular numbered colors (color0-color15):")
+    colors_numbered = [color_dict["colors"][f"color{i}"] for i in range(16)]
+    palette_absolute(colors_numbered)
+    
+    # Special colors
+    print("Special colors:")
+    special_colors = [color_dict["special"]["background"], 
+                     color_dict["special"]["foreground"], 
+                     color_dict["special"]["cursor"]]
+    palette_absolute(special_colors)
+    print("=== END PALETTE OVERVIEW ===\n")
+    
+    return color_dict
 
 
 def shade_16(colors, light, cols16):
@@ -90,8 +167,9 @@ def shade_16(colors, light, cols16):
 
     if cols16:
         if light:
-            colors[k_v[7]] = util.darken_color(colors[k_v[0]], 0.50)
-            colors[k_v[8]] = util.darken_color(colors[k_v[0]], 0.25)
+            print("    Light theme - Setting color7 and color8 (darkened background):")
+            colors[k_v[7]] = util.darken_color(colors[k_v[0]], 0.50, debug=True)
+            colors[k_v[8]] = util.darken_color(colors[k_v[0]], 0.25, debug=True)
             if cols16 == "lighten":
                 colors[k_v[9]] = util.lighten_color(colors[k_v[1]], 0.25)
                 colors[k_v[10]] = util.lighten_color(colors[k_v[2]], 0.25)
@@ -109,11 +187,12 @@ def shade_16(colors, light, cols16):
                 colors[k_v[6]] = util.darken_color(colors[k_v[6]], 0.25)
                 colors[k_v[15]] = util.darken_color(colors[k_v[0]], 0.75)
         else:
-            colors[k_v[7]] = util.lighten_color(colors[k_v[0]], 0.55)
-            colors[k_v[7]] = util.saturate_color(colors[k_v[7]], 0.05)
+            print("    Dark theme - Setting color7 (lightened + saturated background):")
+            colors[k_v[7]] = util.lighten_color(colors[k_v[0]], 0.55, debug=True)
+            colors[k_v[7]] = util.saturate_color(colors[k_v[7]], 0.05, debug=True)
             colors[k_v[8]] = util.lighten_color(colors[k_v[0]], 0.35)
             colors[k_v[8]] = util.saturate_color(colors[k_v[8]], 0.10)
-            colors[k_v[15]] = util.lighten_color(colors[k_v[0]], 0.75)
+            colors[k_v[15]] = util.lighten_color(colors[k_v[0]], 0.75, debug=True)
             if cols16 == "lighten":
                 colors[k_v[9]] = util.lighten_color(colors[k_v[1]], 0.25)
                 colors[k_v[10]] = util.lighten_color(colors[k_v[2]], 0.25)
@@ -137,27 +216,40 @@ def generic_adjust(colors, light, **kwargs):
     :keyword-args:
     -    c16 - [ "lighten" | "darken" ]
     """
+    print("Before generic_adjust:")
+    palette_absolute(colors)
+    
     if "c16" in kwargs:
         cols16 = kwargs["c16"]
     else:
         cols16 = False
 
     if light:
-        for color in colors:
-            color = util.saturate_color(color, 0.60)
-            color = util.darken_color(color, 0.5)
+        print("Light theme adjustments:")
+        
+        print("  Saturating and darkening colors 1-14:")
+        for i in range(1, 15):
+            colors[i] = util.saturate_color(colors[i], 0.60, debug=True)
+            colors[i] = util.darken_color(colors[i], 0.5, debug=True)
 
-        colors[0] = util.lighten_color(colors[0], 0.95)
+        print("  Lightening background (color0):")
+        colors[0] = util.lighten_color(colors[0], 0.95, debug=True)
+        
         if cols16:
+            print("  Applying 16-color shading:")
             shade_16(colors, light, cols16)
         else:
-            colors[7] = util.darken_color(colors[0], 0.75)
-            colors[8] = util.darken_color(colors[0], 0.25)
+            print("  Setting color7, color8, color15:")
+            colors[7] = util.darken_color(colors[0], 0.75, debug=True)
+            colors[8] = util.darken_color(colors[0], 0.25, debug=True)
             colors[15] = colors[7]
 
     else:
+        print("Dark theme adjustments:")
+        
         if colors[0][1] != "0":  # the color may already be dark enough
-            colors[0] = util.darken_color(colors[0], 0.40)  # just a bit darker
+            print("  Darkening background (color0):")
+            colors[0] = util.darken_color(colors[0], 0.40, debug=True)  # just a bit darker
 
         saturate_more = False
         if colors[0][1] == "0":  # the color may not be saturated enough
@@ -168,34 +260,41 @@ def generic_adjust(colors, light, **kwargs):
             saturate_more = True
 
         if saturate_more:
-            colors[0] = util.lighten_color(colors[0], 0.03)
-            colors[0] = util.saturate_color(colors[0], 0.40)
+            print("  Background needs more saturation:")
+            colors[0] = util.lighten_color(colors[0], 0.03, debug=True)
+            colors[0] = util.saturate_color(colors[0], 0.40, debug=True)
 
         if cols16:
+            print("  Applying 16-color shading:")
             shade_16(colors, light, cols16)
         else:
-            colors[7] = util.lighten_color(colors[0], 0.75)
-            colors[8] = util.lighten_color(colors[0], 0.35)
-            colors[8] = util.saturate_color(colors[8], 0.10)
+            print("  Setting color7, color8, color15:")
+            colors[7] = util.lighten_color(colors[0], 0.75, debug=True)
+            colors[8] = util.lighten_color(colors[0], 0.35, debug=True)
+            colors[8] = util.saturate_color(colors[8], 0.10, debug=True)
             colors[15] = colors[7]
 
+    print("After generic_adjust:")
+    palette_absolute(colors)
     return colors
 
 
 def saturate_colors(colors, amount):
     """Saturate all colors."""
     if amount and (float(amount) <= 1.0 and float(amount) >= -1.0):
+        print(f"Saturating colors (amount: {amount}):")
         for i, _ in enumerate(colors):
             if i not in [7, 15]:
-                colors[i] = util.add_saturation(colors[i], float(amount))
+                colors[i] = util.add_saturation(colors[i], float(amount), debug=True)
 
     return colors
 
 def brighten_colors(colors, min_brightness):
     """Brighten all colors."""
+    print(f"Brightening colors (min_brightness: {min_brightness}):")
     for i, _ in enumerate(colors):
         if i not in [0, 7, 8, 15]:
-            colors[i] = util.brighten_color(colors[i], min_brightness)
+            colors[i] = util.brighten_color(colors[i], min_brightness, debug=True)
 
     return colors
 
@@ -542,7 +641,7 @@ def get(
             print("After contrast adjustment:")
             palette_absolute(colors)
 
-        colors = colors_to_dict(colors, img)
+        colors = colors_to_dict(colors, img, ansi_match=ansi_match, light=light, c16=cols16)
         util.save_file_json(colors, cache_file)
         logging.info("Generation complete.")
 
