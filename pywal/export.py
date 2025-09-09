@@ -98,6 +98,8 @@ def flatten_colors(colors):
     # Include ANSI colors if they exist
     if "ansi" in colors:
         all_colors.update(colors["ansi"])
+    if "surfaces" in colors:
+        all_colors.update(colors["surfaces"])
     
     return {k: util.Color(v) for k, v in all_colors.items()}
 

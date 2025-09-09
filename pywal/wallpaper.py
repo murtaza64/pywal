@@ -376,7 +376,15 @@ def change(img):
     subprocess.call(["ln", "-sf", img, os.path.join(CACHE_DIR, "wallpaper")])
 
     logging.info("Set the new wallpaper.")
+    create_blurred_wallpaper(img)
 
+def create_blurred_wallpaper(img):
+    ret = subprocess.run(["magick", img, "-blur", "0x16", os.path.join(CACHE_DIR, "wallpaper.blurred")])
+    if ret.returncode != 0:
+        logging.error("Failed to create blurred wallpaper.")
+        logging.error(ret.stderr)
+    else:
+        logging.info("Created blurred wallpaper.")
 
 def get(cache_dir=CACHE_DIR):
     """Get the current wallpaper."""

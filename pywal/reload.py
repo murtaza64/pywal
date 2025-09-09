@@ -4,6 +4,7 @@ Reload programs.
 
 import logging
 import os
+from pathlib import Path
 import shutil
 import subprocess
 import time
@@ -67,6 +68,34 @@ def kitty():
                     os.path.join(CACHE_DIR, "colors-kitty.conf"),
                 ]
             )
+    elif shutil.which("kitty"):
+        # find /tmp/kitty-xxxx.sock
+        for file in Path("/tmp").glob("kitty-*.sock"):
+            logging.info("Reloading kitty colors in %s", file)
+            socket = os.path.join("/tmp", file)
+            subprocess.call(
+                [
+                    "kitty",
+                    "@",
+                    "--to",
+                    f"unix:{socket}",
+                    "set-colors",
+                    "--all",
+                    os.path.join(CACHE_DIR, "colors-kitty.conf"),
+                ]
+            )
+            if os.getenv("WAL_KITTY_SET_BACKGROUND"):
+                logging.info("Setting kitty background image in %s", file)
+                subprocess.call(
+                    [
+                        "kitty",
+                        "@",
+                        "--to",
+                        f"unix:{socket}",
+                        "set-background-image",
+                        os.path.join(CACHE_DIR, "wallpaper.blurred"),
+                    ]
+                )
 
 
 def polybar():

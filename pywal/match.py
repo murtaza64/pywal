@@ -78,15 +78,13 @@ def get_closest_target(color):
 def get_closest_palette_color(target, palette):
     closest = None
     closest_distance = float('inf')
-    logging.debug('finding closest palette color to', target)
+    print('finding closest palette color to', target)
     for color in palette:
-        # h, _, _ = rgb_to_hsv(*color)
-        # distance = circle_distance(h, hue)
-        # print_colored_square(*color)
-        # print_colored_square(*color)
+        print_colored_square(*color)
+        print_colored_square(*color)
         hsv = rgb_to_hsv(*color)
         distance = color_distance(hsv, TARGET_COLORS[target])
-        # print(distance)
+        print(hsv, distance)
         if distance < closest_distance:
             closest_distance = distance
             closest = color
@@ -127,10 +125,36 @@ def choose_colors_for_each_target(generated_palette):
 def choose_colors_for_each_target2(generated_palette):
     generated_palette = generated_palette[:]
     palette = {}
+    
+    # Pre-calculate average saturation and value from original palette
+    avg_s = sum(rgb_to_hsv(*color)[1] for color in generated_palette) / len(generated_palette)
+    avg_v = sum(rgb_to_hsv(*color)[2] for color in generated_palette) / len(generated_palette)
+    
+    targets_to_fix = ["red", "yellow", "green"]
+    
     for target, hue in TARGET_HUES.items():
-        # palette[target] = get_closest_palette_color_for_hue(hue, generated_palette)
-        palette[target] = get_closest_palette_color(target, generated_palette)
-        generated_palette.remove(palette[target])
+        candidate_color = get_closest_palette_color(target, generated_palette)
+        
+        # Check if this color needs fixing (inline tolerance check)
+        if target in targets_to_fix:
+            target_hue = TARGET_HUES[target]
+            h, s, v = rgb_to_hsv(*candidate_color)
+            tol = HUE_TOLERANCES[target]
+            
+            print(h, target_hue, circle_distance(h, target_hue), tol)
+            if circle_distance(h, target_hue) > tol:
+                # Bad match - interpolate and leave original in pool
+                logging.warning(f"bad match for {target} {candidate_color} interpolated")
+                palette[target] = interpolate_by_avg_sv(candidate_color, target, tol, avg_s, avg_v)
+            else:
+                # Good match - use it and remove from pool
+                palette[target] = candidate_color
+                generated_palette.remove(candidate_color)
+        else:
+            # Non-critical target - always use and remove from pool
+            palette[target] = candidate_color
+            generated_palette.remove(candidate_color)
+    
     return palette
 
 
@@ -175,14 +199,11 @@ def offset_target_hue(h, target_h, push_amount=0.15):
         return increased
     return decreased
 
-def interpolate_by_avg_sv(color_map, target: str, tolerance):
-    original = color_map[target]
+def interpolate_by_avg_sv(original_color, target: str, tolerance, avg_s, avg_v):
     # push the target hue towards the actual hue
-    h, _, _ = rgb_to_hsv(*original)
+    h, _, _ = rgb_to_hsv(*original_color)
     target_hue = TARGET_HUES[target]
     new_h = offset_target_hue(h, target_hue, tolerance)
-    avg_s = sum(rgb_to_hsv(*color_map[t])[1] for t in color_map) / len(color_map)
-    avg_v = sum(rgb_to_hsv(*color_map[t])[2] for t in color_map) / len(color_map)
     # # dull color since it wasnt part of the palette
     avg_s = avg_s/2
     avg_v = avg_v * 0.8
@@ -237,7 +258,6 @@ def get_ansi_color_mapping(raw_palette: List[str]) -> dict:
     assert len(palette) >= 6, "too many greyish colors"
     categorize_palette(palette)
     palette = choose_colors_for_each_target2(palette)
-    fix_bad_colors(palette)
     
     # Convert back to hex and create mapping
     ansi_mapping = {}
@@ -261,7 +281,6 @@ def rearrange_palette(raw_palette: List[Tuple[int, int, int]]):
     assert len(palette) >= 6, "too many greyish colors"
     categorize_palette(palette)
     palette = choose_colors_for_each_target2(palette)
-    fix_bad_colors(palette)
     palette = {k: (round(r*255), round(g*255), round(b*255)) for k, (r, g, b) in palette.items()}
     # for target, color in palette.items():
     #     print_colored_square(*color)

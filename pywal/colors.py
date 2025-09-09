@@ -117,6 +117,19 @@ def colors_to_dict(colors, img, ansi_match=False, light=False, **kwargs):
         
         color_dict["ansi"] = ansi_mapping
     
+    # Generate gradually lightened background shades
+    surface_colors = {}
+    for i in range(6):
+        shade_amount = (i + 1) * (0.75 / 7)  # Evenly spaced from 0 to 0.75 exclusive: ~0.107, 0.214, 0.321, 0.429, 0.536, 0.643
+        surface_colors[f"surface{i}"] = util.lighten_color(colors[0], shade_amount)
+    
+    color_dict["surfaces"] = surface_colors
+    
+    # Print surface colors
+    print("Surface colors:")
+    surface_values = [surface_colors[f"surface{i}"] for i in range(6)]
+    palette_absolute(surface_values)
+    
     # Show complete palette overview
     print("\n=== COMPLETE PALETTE OVERVIEW ===")
     
