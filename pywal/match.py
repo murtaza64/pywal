@@ -7,6 +7,10 @@ def print_colored_square(r, g, b):
     r, g, b = round(r*255), round(g*255), round(b*255)
     print(f"\033[48;2;{r};{g};{b}m  \033[0m", end="")
 
+def get_colored_square(r, g, b):
+    r, g, b = round(r*255), round(g*255), round(b*255)
+    return f"\033[48;2;{r};{g};{b}m  \033[0m"
+
 def print_palette(colors):
     for color in colors:
         print_colored_square(*color)
@@ -19,7 +23,7 @@ def print_color(color):
         h = round(h * 360)
         s = f"{round(s * 100)}%"
         v = f"{round(v / 255 * 100)}%"
-        print(' ', h, s, v, greyish)
+        logging.debug(f' {h} {s} {v} {greyish}')
 
 # FILENAME = "/Users/murtaza/wallpapers/outrun.jpg"
 #
@@ -75,19 +79,27 @@ def get_closest_target(color):
 #     print_colored_square(*color)
 #     print(' ', color, match)
 
+def hsvformat(hsv):
+    h, s, v = hsv
+    h = round(h * 360)
+    s = f"{round(s * 100)}%"
+    v = f"{round(v * 100)}%"
+    return f"{h}, {s}, {v}"
+
 def get_closest_palette_color(target, palette):
-    closest = None
+    closest = palette[0]
     closest_distance = float('inf')
-    print('finding closest palette color to', target)
+    logging.debug(f"finding closest palette color to {target} ({hsvformat(TARGET_COLORS[target])})")
     for color in palette:
-        print_colored_square(*color)
-        print_colored_square(*color)
+        sq = get_colored_square(*color)
         hsv = rgb_to_hsv(*color)
         distance = color_distance(hsv, TARGET_COLORS[target])
-        print(hsv, distance)
+        logging.debug(f"{sq}{sq} ({hsvformat(hsv)}) d={distance:.2f}")
         if distance < closest_distance:
             closest_distance = distance
             closest = color
+    sq = get_colored_square(*closest)
+    logging.debug(f"closest: {sq*2} ({hsvformat(rgb_to_hsv(*closest))}) d={closest_distance:.2f}")
     return closest
 
 def is_greyish(r, g, b):
@@ -141,11 +153,13 @@ def choose_colors_for_each_target2(generated_palette):
             h, s, v = rgb_to_hsv(*candidate_color)
             tol = HUE_TOLERANCES[target]
             
-            print(h, target_hue, circle_distance(h, target_hue), tol)
+            # print(h, target_hue, circle_distance(h, target_hue), tol)
+            logging.debug(f"{target}: target_hue={target_hue*360} candidate_hue={h*360:.1f} distance={circle_distance(h, target_hue)*360:.1f} tolerance={tol*360}")
             if circle_distance(h, target_hue) > tol:
                 # Bad match - interpolate and leave original in pool
-                logging.warning(f"bad match for {target} {candidate_color} interpolated")
                 palette[target] = interpolate_by_avg_sv(candidate_color, target, tol, avg_s, avg_v)
+                sq = get_colored_square(*palette[target])
+                logging.warning(f"bad match for {target} interpolated to {sq*2}")
             else:
                 # Good match - use it and remove from pool
                 palette[target] = candidate_color
@@ -208,36 +222,37 @@ def interpolate_by_avg_sv(original_color, target: str, tolerance, avg_s, avg_v):
     avg_s = avg_s/2
     avg_v = avg_v * 0.8
     new_color = tuple(p for p in hsv_to_rgb(new_h, avg_s, avg_v))
-    logging.debug("interpolated by avg s and v to get", target, "color:", end='')
+    sq = get_colored_square(*new_color)
+    logging.debug(f"interpolated by avg s and v to get {target} color: {sq}{sq}")
     # print_colored_square(*new_color)
     # print_colored_square(*new_color)
     # print()
     return new_color
 
-def fix_bad_colors(color_map):
-    targets_to_fix = ["red", "yellow", "green"]
-    for target, color in color_map.items():
-        if target not in targets_to_fix:
-            continue
-        target_hue = TARGET_HUES[target]
-        h, s, v = rgb_to_hsv(*color)
-        tol = HUE_TOLERANCES[target]
-        if circle_distance(h, target_hue) > tol:
-            logging.warning(f"bad match for {target} {color} interpolated")
-            color_map[target] = interpolate_by_avg_sv(color_map, target, tol)
+# def fix_bad_colors(color_map):
+#     targets_to_fix = ["red", "yellow", "green"]
+#     for target, color in color_map.items():
+#         if target not in targets_to_fix:
+#             continue
+#         target_hue = TARGET_HUES[target]
+#         h, s, v = rgb_to_hsv(*color)
+#         tol = HUE_TOLERANCES[target]
+#         if circle_distance(h, target_hue) > tol:
+#             logging.warning(f"bad match for {target} {color} interpolated")
+#             color_map[target] = interpolate_by_avg_sv(color_map, target, tol)
 
 
 def categorize_palette(colors):
+    logging.debug("categorizing palette")
     for color in colors:
-        print_colored_square(*color)
-        print_colored_square(*color)
+        sq = get_colored_square(*color)
         # print_color(color)
         target = get_closest_target(color)
         hue = int(rgb_to_hsv(*color)[0] * 360)
         hsv = rgb_to_hsv(*color)
         target_hsv = TARGET_COLORS[target]
         d = color_distance(hsv, target_hsv)
-        print(' ', target, hue, f'{d:.2f}')
+        logging.debug(f"{sq*2}{sq} ({hsvformat(hsv)}) ~ {target}  d={d:.2f}")
 
 def get_ansi_color_mapping(raw_palette: List[str]) -> dict:
     """Get a mapping of ANSI color names to hex colors from a palette.
@@ -252,7 +267,7 @@ def get_ansi_color_mapping(raw_palette: List[str]) -> dict:
     black = colors[0]
     white = colors[-1]
     colors = [(r/255, g/255, b/255) for (r, g, b) in colors]
-    logging.debug(colors)
+    # logging.debug(colors)
     colors = colors[1:-1]
     palette = [color for color in colors if not is_greyish(*color)]
     assert len(palette) >= 6, "too many greyish colors"

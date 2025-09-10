@@ -13,13 +13,28 @@ import subprocess
 import sys
 import hashlib
 import copy
+from .settings import XDG_CACHE_DIR
 
+
+def get_cache_dir():
+    """Get the cache directory from global args or environment."""
+    # Import here to avoid circular imports
+    from .args import ARGS
+    
+    if hasattr(ARGS, 'out_dir') and ARGS.out_dir:
+        return ARGS.out_dir
+    return os.getenv("PYWAL_CACHE_DIR", os.path.join(XDG_CACHE_DIR, "wal"))
+
+
+def get_cache_file(*path: str) -> str:
+    """Get a filename from the cache directory."""
+    return os.path.join(get_cache_dir(), *path)
 
 def print_color_change(old_color, new_color, operation):
-    """Print a color change with visual representation."""
+    """Log a color change with visual representation."""
     r1, g1, b1 = hex_to_rgb(old_color)
     r2, g2, b2 = hex_to_rgb(new_color)
-    print(f"    {operation}: \033[48;2;{r1};{g1};{b1}m  \033[0m {old_color} -> \033[48;2;{r2};{g2};{b2}m  \033[0m {new_color}")
+    logging.debug(f"    {operation}: \033[48;2;{r1};{g1};{b1}m  \033[0m {old_color} -> \033[48;2;{r2};{g2};{b2}m  \033[0m {new_color}")
 
 has_fcntl = False
 fcntl_warning = ""
@@ -273,7 +288,7 @@ def create_dir(directory):
     os.makedirs(directory, exist_ok=True)
 
 
-def setup_logging():
+def setup_logging(level=logging.INFO):
     """Logging config."""
     logging.basicConfig(
         format=(
@@ -281,12 +296,13 @@ def setup_logging():
             "\033[1;31m%(module)s\033[0m: "
             "%(message)s"
         ),
-        level=logging.INFO,
+        level=level,
         stream=sys.stdout,
     )
     logging.addLevelName(logging.ERROR, "\033[1;31mE")
     logging.addLevelName(logging.INFO, "\033[1;32mI")
     logging.addLevelName(logging.WARNING, "\033[1;33mW")
+    logging.addLevelName(logging.DEBUG, "\033[1;34mD")
 
 
 def hex_to_rgb(color):

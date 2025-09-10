@@ -3,6 +3,7 @@
 import ctypes
 import logging
 import os
+from pathlib import Path
 import re
 import shutil
 import subprocess
@@ -11,7 +12,8 @@ import plistlib
 import datetime
 import tempfile
 
-from .settings import HOME, OS, CACHE_DIR
+from .settings import HOME, OS
+from .util import get_cache_file
 from . import util
 
 if not HOME:
@@ -340,6 +342,7 @@ def set_mac_wallpaper(img):
         plistlib.dump(new_plist, f)
         f.close()
     subprocess.call(["killall", "WallpaperAgent"])
+    logging.info("Set mac wallpaper")
 
 
 def set_win_wallpaper(img):
@@ -361,6 +364,7 @@ def change(img):
     if not os.path.isfile(img):
         return
 
+    logging.info("Changing wallpaper to %s", img)
     desktop = get_desktop_env()
 
     if OS == "Darwin":
@@ -373,22 +377,47 @@ def change(img):
         set_desktop_wallpaper(desktop, img)
 
     # link wallpaper at ~/.cache/wal/wallpaper
-    subprocess.call(["ln", "-sf", img, os.path.join(CACHE_DIR, "wallpaper")])
+    subprocess.call(["ln", "-sf", img, get_cache_file("wallpaper")])
 
-    logging.info("Set the new wallpaper.")
-    create_blurred_wallpaper(img)
+    if os.getenv("WAL_KITTY_SET_BACKGROUND"):
+        create_blurred_wallpaper(img)
+        for file in Path("/tmp").glob("kitty-*.sock"):
+            socket = os.path.join("/tmp", file)
+            logging.info("Setting kitty background image in %s", file)
+            util.disown(
+                [
+                    "kitty",
+                    "@",
+                    "--to",
+                    f"unix:{socket}",
+                    "set-background-image",
+                    get_cache_file("wallpaper.blurred"),
+                ]
+            )
 
 def create_blurred_wallpaper(img):
-    ret = subprocess.run(["magick", img, "-blur", "0x16", os.path.join(CACHE_DIR, "wallpaper.blurred")])
-    if ret.returncode != 0:
-        logging.error("Failed to create blurred wallpaper.")
-        logging.error(ret.stderr)
+    blur_cache = get_cache_file("blurred")
+    os.makedirs(blur_cache, exist_ok=True)
+    safe_filename = re.sub(r'[^a-zA-Z0-9._-]', '_', img)
+    cached_blur_path = os.path.join(blur_cache, safe_filename)
+    if os.path.isfile(cached_blur_path):
+        logging.info("Using cached blurred wallpaper.")
+        return
     else:
+        if not shutil.which("magick"):
+            logging.warning("ImageMagick not found, cannot create blurred wallpaper.")
+            return
+        ret = subprocess.run(["magick", img, "-blur", "0x16", cached_blur_path],)
+        if ret.returncode != 0:
+            logging.error("Failed to create blurred wallpaper.")
+            logging.error(ret.stderr)
+            return
         logging.info("Created blurred wallpaper.")
+    subprocess.call(["ln", "-sf", cached_blur_path, get_cache_file("wallpaper.blurred")])
 
-def get(cache_dir=CACHE_DIR):
+def get(cache_dir=None):
     """Get the current wallpaper."""
-    current_wall = os.path.join(cache_dir, "wal")
+    current_wall = get_cache_file("wal")
 
     if os.path.isfile(current_wall):
         # make sure the file has some content in it,

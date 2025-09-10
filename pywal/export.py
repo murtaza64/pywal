@@ -8,7 +8,8 @@ import re
 import shutil
 
 from . import util
-from .settings import CACHE_DIR, CONF_DIR, MODULE_DIR
+from .settings import CONF_DIR, MODULE_DIR
+from .util import get_cache_dir, get_cache_file
 
 
 class ExportFile:
@@ -162,8 +163,9 @@ def generate_color_images(colors, destdir):
             pass
 
 
-def every(colors, output_dir=CACHE_DIR):
+def every(colors):
     """Export all template files."""
+    output_dir = get_cache_dir()
     join = os.path.join  # Minor optimization.
     generate_color_images(colors, output_dir)
     colors = flatten_colors(colors)
@@ -177,7 +179,6 @@ def every(colors, output_dir=CACHE_DIR):
         if file.name != ".DS_Store" and not file.name.endswith(".swp"):
             template(colors, file.path, join(output_dir, file.relative_path))
 
-    logging.info("Exported all files.")
     logging.info("Exported all user files to %s", output_dir)
 
 
@@ -192,7 +193,7 @@ def color(colors, export_type, output_file=None):
     else:
         template_file = os.path.join(MODULE_DIR, "templates", template_name)
 
-    output_file = output_file or os.path.join(CACHE_DIR, template_name)
+    output_file = output_file or get_cache_file(template_name)
 
     if os.path.isfile(template_file):
         template(all_colors, template_file, output_file)

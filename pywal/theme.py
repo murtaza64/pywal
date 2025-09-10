@@ -7,13 +7,16 @@ import os
 import random
 import sys
 
-from .settings import CACHE_DIR, CONF_DIR, MODULE_DIR
+from .settings import CONF_DIR, MODULE_DIR
+from .args import ARGS
+from .util import get_cache_dir, get_cache_file
 from . import util
 from . import colors
 
 # Add cache directory to Python path so we can import colors directly
-if CACHE_DIR not in sys.path:
-    sys.path.insert(0, CACHE_DIR)
+cache_dir = get_cache_dir()
+if cache_dir not in sys.path:
+    sys.path.insert(0, cache_dir)
 
 # Try to import generated colors template
 try:
@@ -34,7 +37,7 @@ def list_out():
 
     try:
         last_used_theme = util.read_file(
-            os.path.join(CACHE_DIR, "last_used_theme")
+            get_cache_file("last_used_theme")
         )[0].replace(".json", "")
     except FileNotFoundError:
         last_used_theme = ""
@@ -141,12 +144,8 @@ def get_random_theme_user():
     return themes[0]
 
 
-def file(input_file, light=False, **kwargs):
+def file(input_file, light=False):
     """Import colorscheme from json file."""
-    if "c16" in kwargs:
-        cols16 = kwargs["c16"]
-    else:
-        cols16 = False
 
     util.create_dir(os.path.join(CONF_DIR, "colorschemes/light/"))
     util.create_dir(os.path.join(CONF_DIR, "colorschemes/dark/"))
@@ -180,9 +179,10 @@ def file(input_file, light=False, **kwargs):
         )
         util.save_file(
             os.path.basename(theme_file),
-            os.path.join(CACHE_DIR, "last_used_theme"),
+            get_cache_file("last_used_theme"),
         )
         r_theme = parse(theme_file)
+        cols16 = ARGS.cols16
         if cols16:
             if r_theme["colors"]["color1"] == r_theme["colors"]["color9"]:
                 logging.info("requested theme uses 9 shades, converting to 16")

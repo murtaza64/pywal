@@ -9,13 +9,14 @@ import shutil
 import subprocess
 import time
 
-from .settings import CACHE_DIR, MODULE_DIR, OS
+from .settings import MODULE_DIR, OS, XDG_CONF_DIR
+from .util import get_cache_file
 from . import util
 
 
 def tty(tty_reload):
     """Load colors in tty."""
-    tty_script = os.path.join(CACHE_DIR, "colors-tty.sh")
+    tty_script = get_cache_file("colors-tty.sh")
     term = os.environ.get("TERM")
 
     if tty_reload and term == "linux":
@@ -24,7 +25,7 @@ def tty(tty_reload):
 
 def xrdb(xrdb_files=None):
     """Merge the colors into the X db so new terminals use them."""
-    xrdb_files = xrdb_files or [os.path.join(CACHE_DIR, "colors.Xresources")]
+    xrdb_files = xrdb_files or [get_cache_file("colors.Xresources")]
 
     if shutil.which("xrdb") and OS != "Darwin":
         for file in xrdb_files:
@@ -53,7 +54,7 @@ def kitty():
                     "@",
                     "set-colors",
                     "--all",
-                    os.path.join(CACHE_DIR, "colors-kitty.conf"),
+                    get_cache_file("colors-kitty.conf"),
                 ]
             )
         else:
@@ -65,7 +66,7 @@ def kitty():
                     "unix:/tmp/kitty_pywal",
                     "set-colors",
                     "--all",
-                    os.path.join(CACHE_DIR, "colors-kitty.conf"),
+                    get_cache_file("colors-kitty.conf"),
                 ]
             )
     elif shutil.which("kitty"):
@@ -73,7 +74,7 @@ def kitty():
         for file in Path("/tmp").glob("kitty-*.sock"):
             logging.info("Reloading kitty colors in %s", file)
             socket = os.path.join("/tmp", file)
-            subprocess.call(
+            util.disown(
                 [
                     "kitty",
                     "@",
@@ -81,21 +82,9 @@ def kitty():
                     f"unix:{socket}",
                     "set-colors",
                     "--all",
-                    os.path.join(CACHE_DIR, "colors-kitty.conf"),
+                    get_cache_file("colors-kitty.conf"),
                 ]
             )
-            if os.getenv("WAL_KITTY_SET_BACKGROUND"):
-                logging.info("Setting kitty background image in %s", file)
-                subprocess.call(
-                    [
-                        "kitty",
-                        "@",
-                        "--to",
-                        f"unix:{socket}",
-                        "set-background-image",
-                        os.path.join(CACHE_DIR, "wallpaper.blurred"),
-                    ]
-                )
 
 
 def polybar():
@@ -122,16 +111,6 @@ def waybar():
         util.disown(["pkill", "-x", "-USR2", "waybar"])
 
 
-def colors(cache_dir=CACHE_DIR):
-    """Reload colors. (Deprecated)"""
-    sequences = os.path.join(cache_dir, "sequences")
-
-    logging.error("'wal -r' is deprecated: " "Use 'cat %s' instead.", sequences)
-
-    if os.path.isfile(sequences):
-        print("".join(util.read_file(sequences)), end="")
-
-
 def termux():
     """reload termux colors."""
     if shutil.which("termux-reload-settings"):
@@ -149,6 +128,11 @@ def nvim():
     if shutil.which("nvim-colo-reload") and util.get_pid("nvim"):
         util.disown(["nvim-colo-reload"])
 
+def tmux():
+    """Reload tmux colors."""
+    if shutil.which("tmux"):
+        util.disown(["tmux", "source-file", os.path.join(XDG_CONF_DIR, "tmux", "tmux.conf")])
+
 
 def env(xrdb_file=None, tty_reload=True):
     """Reload environment."""
@@ -159,6 +143,7 @@ def env(xrdb_file=None, tty_reload=True):
     sway()
     polybar()
     nvim()
+    tmux()
     waybar()
     termux()
     mako()

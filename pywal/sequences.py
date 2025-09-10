@@ -7,7 +7,8 @@ import logging
 import os
 import subprocess
 
-from .settings import CACHE_DIR, OS
+from .settings import OS
+from .util import get_cache_dir, get_cache_file
 from . import util
 
 
@@ -105,8 +106,10 @@ def create_sequences(colors, vte_fix=False):
     return "".join(sequences)
 
 
-def send(colors, cache_dir=CACHE_DIR, to_send=True, vte_fix=False):
+def send(colors, cache_dir=None, to_send=True, vte_fix=False):
     """Send colors to all open terminals."""
+    if cache_dir is None:
+        cache_dir = get_cache_dir()
     if OS == "Darwin":
         devices = glob.glob("/dev/ttys00[0-9]*")
     elif OS == "OpenBSD":
@@ -131,5 +134,5 @@ def send(colors, cache_dir=CACHE_DIR, to_send=True, vte_fix=False):
                     continue
             util.save_file(sequences, dev)
 
-    util.save_file(sequences, os.path.join(cache_dir, "sequences"))
+    util.save_file(sequences, get_cache_file("sequences"))
     logging.info("Set terminal colors.")

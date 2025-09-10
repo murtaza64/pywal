@@ -23,31 +23,18 @@ def gen_colors(img):
     return [util.rgb_to_hex(col[1]) for col in palette]
 
 
-def adjust(cols, light, **kwargs):
-    """Create palette.
-    :keyword-args:
-    -    c16: use 16 colors through specified method - [ "lighten" | "darken" ]
-    """
-    if "c16" in kwargs:
-        cols16 = kwargs["c16"]
-    else:
-        cols16 = False
+def adjust(cols, light):
+    """Create palette."""
     cols.sort(key=util.rgb_to_yiq)
-    raw_colors = [*cols, *cols]
+    # Take first 8 colors and adjust background
+    raw_colors = cols[:8]
     raw_colors[0] = util.lighten_color(cols[0], 0.40)
     raw_colors[0] = util.darken_color(cols[0], 0.80)
 
-    return colors.generic_adjust(raw_colors, light, c16=cols16)
+    return colors.generic_adjust(raw_colors, light)
 
 
-def get(img, light=False, **kwargs):
-    """Get colorscheme.
-    :keyword-args:
-    -    c16: use 16 colors through specified method - [ "lighten" | "darken" ]
-    """
-    if "c16" in kwargs:
-        cols16 = kwargs["c16"]
-    else:
-        cols16 = False
+def get(img, light=False):
+    """Get colorscheme."""
     cols = gen_colors(img)
-    return adjust(cols, light, c16=cols16)
+    return adjust(cols, light)

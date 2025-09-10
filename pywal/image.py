@@ -8,7 +8,7 @@ import random
 import re
 import sys
 
-from .settings import CACHE_DIR
+from .util import get_cache_dir
 from . import util
 from . import wallpaper
 
@@ -91,8 +91,10 @@ def get_next_image(img_dir, recursive):
     return os.path.join(img_dir if not recursive else "", image)
 
 
-def get(img, cache_dir=CACHE_DIR, iterative=False, recursive=False):
+def get(img, cache_dir=None, iterative=False, recursive=False):
     """Validate image input."""
+    if cache_dir is None:
+        cache_dir = get_cache_dir()
     if os.path.isfile(img):
         wal_img = img
 

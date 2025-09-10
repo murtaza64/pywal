@@ -44,6 +44,14 @@ class Colors:
     bright_cyan = "{bright_cyan}"
     bright_white = "{bright_white}"
     
+    # Surface colors 
+    surface0 = "{surface0}"
+    surface1 = "{surface1}"
+    surface2 = "{surface2}"
+    surface3 = "{surface3}"
+    surface4 = "{surface4}"
+    surface5 = "{surface5}"
+
     # Metadata
     checksum = "{checksum}"
     wallpaper = "{wallpaper}"
