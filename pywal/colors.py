@@ -10,13 +10,21 @@ import re
 import sys
 import colorsys
 
-from .args import ARGS
+from pywal.types import HexColor
+
+from .args import ARGS, get_save_dict
 from .util import get_cache_dir
 from . import theme
 from . import util
 from . import match
 from .print import palette_absolute
 from .settings import MODULE_DIR, __cache_version__
+
+# Foreground color thresholds for white-ish appearance
+COLOR_7_MAX_SATURATION = 0.2
+COLOR_7_MIN_BRIGHTNESS = 0.7
+FG_MAX_SATURATION = 0.12
+FG_MIN_BRIGHTNESS = 0.8
 
 
 def list_backends():
@@ -41,19 +49,11 @@ def normalize_img_path(img: str):
 def colors_to_dict(colors: dict, img):
     """Convert list of colors to pywal format."""
     logging.debug("Converting colors to dictionary")
-    
-
 
     light = ARGS.light
-    cols16 = ARGS.cols16 
+    shading = ARGS.shading 
     color_dict = {
-        "settings": {
-            "light": light,
-            "cols16": cols16,
-            "backend": ARGS.backend,
-            "saturate": ARGS.saturate,
-            "contrast": ARGS.contrast,
-        },
+        "settings": get_save_dict(),
         "checksum": util.get_img_checksum(img),
         "wallpaper": normalize_img_path(img),
         "alpha": util.Color.alpha_num,
@@ -92,7 +92,7 @@ def colors_to_dict(colors: dict, img):
     # for color_name in middle_colors:
     #     base_color = ansi_mapping[color_name]
     #     if light:
-    #         if cols16 == "lighten":
+    #         if shading == "lighten":
     #             bright_color = util.lighten_color(base_color, 0.25)
     #             bright_color = util.saturate_color(bright_color, 0.40)
     #         else:  # darken mode
@@ -117,13 +117,38 @@ def colors_to_base_dict(colors_list) -> dict[str | int, str]:
     return {i: colors_list[i] for i in range(min(8, len(colors_list)))}
 
 
-def shade_16(colors, light, cols16):
+def adjust_to_fg_thresholds(color, sat_threshold, brightness_threshold):
+    """Adjust a color to meet foreground thresholds (low saturation, high brightness)."""
+    r, g, b = util.hex_to_rgb(color)
+    h, s, v = match.rgb_to_hsv(r/255.0, g/255.0, b/255.0)
+    
+    logging.debug(f"Adjusting fg color {color} (s={s:.2f}, v={v:.2f}) to meet thresholds")
+    
+    adjusted_color = color
+    
+    # Reduce saturation if too high (desaturate to make more white-ish)
+    if s > sat_threshold:
+        # Calculate how much to desaturate: current saturation - target
+        desaturate_amount = -(s - sat_threshold)  # negative value for desaturation
+        adjusted_color = util.add_saturation(adjusted_color, desaturate_amount, debug=True)
+    
+    # # Increase brightness if too low
+    # if v < brightness_threshold:
+    #     # Calculate target brightness increase
+    #     target_brightness = brightness_threshold
+    #     adjusted_color = util.brighten_color(adjusted_color, target_brightness, debug=True)
+    adjusted_color = util.brighten_color(adjusted_color, brightness_threshold, debug=True)
+    
+    return adjusted_color
+
+
+def shade_16(colors, light, shading):
     """Generate 16-color palette from 8 base colors
     this function expects an 8-color dict input and expands it to 16 colors
 
     colors: dict (expected to have integer keys 0 through 7)
     light:  boolean - whether the colorscheme is light
-    cols16: str [lighten|darken] - method to generate the shades"""
+    shading: str [lighten|darken] - method to generate the shades"""
 
     dark_to_light_map = {k: v for k, v in {
         # omit 0 and 7 (bg and fg) for custom handling
@@ -133,6 +158,7 @@ def shade_16(colors, light, cols16):
         4: 12,
         5: 13,
         6: 14,
+        7: 15,
         # "black": "bright_black",
         "red": "bright_red",
         "green": "bright_green",
@@ -145,88 +171,78 @@ def shade_16(colors, light, cols16):
 
     # middle colors
     for orig, bright in dark_to_light_map.items():
-        if light and cols16 == "lighten":
+        if light and shading == "lighten":
             colors[bright] = util.lighten_color(colors[orig], 0.25)
-        elif light and cols16 == "darken":
+        elif light and shading == "darken":
             colors[bright] = util.darken_color(colors[orig], 0.25)
-        elif not light and cols16 == "lighten":
+        elif not light and shading == "lighten":
             new = util.lighten_color(colors[orig], 0.25)
             new = util.saturate_color(new, 0.40)
             colors[bright] = new
-        elif not light and cols16 == "darken":
+        elif not light and shading == "darken":
             colors[bright] = colors[orig]
             colors[orig] = util.darken_color(colors[orig], 0.25)
         else:
-            raise ValueError("Invalid cols16 strategy")
+            raise ValueError("Invalid shading strategy")
 
     # bg and fg
     if light:
         # Light theme: Generate colors 8-15 based on colors 0-7
         logging.debug("    Light theme - Generating bright colors 8-15:")
-        colors[7] = util.darken_color(colors[0], 0.50, debug=True)
         colors[8] = util.darken_color(colors[0], 0.25, debug=True)
-        colors[15] = util.darken_color(colors[0], 0.75)
+        # colors[15] = util.darken_color(colors[0], 0.75)
     else:
         # Dark theme: Generate colors 8-15 based on colors 0-7
         logging.debug("    Dark theme - Generating bright colors 8-15:")
-        colors[7] = util.lighten_color(colors[0], 0.55, debug=True)
-        colors[7] = util.saturate_color(colors[7], 0.05, debug=True)
+        # colors[15] = util.lighten_color(colors[0], 0.75, debug=True)
+
+        # bright bg
         color8 = util.lighten_color(colors[0], 0.35)
         color8 = util.saturate_color(color8, 0.10)
         colors[8] = color8
-        colors[15] = util.lighten_color(colors[0], 0.75, debug=True)
 
     colors["white"] = colors[7]
     colors["bright_white"] = colors[15]
     colors["bright_black"] = colors[8]
 
-def generic_adjust(colors, light):
-    """Generic color adjustment for themers."""
-    logging.debug("Before generic_adjust:")
-    palette_absolute(colors)
-    
-    # Get c16 from global args
-    cols16 = ARGS.cols16
-
+def adjust_background(color, light):
     if light:
-        logging.debug("Light theme adjustments:")
-        
-        logging.debug("  Saturating and darkening colors 1-7:")
-        for i in range(1, min(8, len(colors))):
-            colors[i] = util.saturate_color(colors[i], 0.60, debug=True)
-            colors[i] = util.darken_color(colors[i], 0.5, debug=True)
-
-        logging.debug("  Lightening background (color0):")
-        colors[0] = util.lighten_color(colors[0], 0.95, debug=True)
-        
-        # 16-color shading will be applied later after all adjustments
+        logging.debug("Lightening background color:")
+        color = util.lighten_color(color, 0.95, debug=True)
 
     else:
-        logging.debug("Dark theme adjustments:")
-        
-        if colors[0][1] != "0":  # the color may already be dark enough
-            logging.debug("  Darkening background (color0):")
-            colors[0] = util.darken_color(colors[0], 0.40, debug=True)  # just a bit darker
+        if color[1] != "0":  # the color may already be dark enough
+            logging.debug("Darkening background color:")
+            color = util.darken_color(color, 0.40, debug=True)  # just a bit darker
 
         saturate_more = False
-        if colors[0][1] == "0":  # the color may not be saturated enough
+        if color[1] == "0":  # the color may not be saturated enough
             saturate_more = True
-        if colors[0][3] == "0":  # the color may not be saturated enough
+        if color[3] == "0":  # the color may not be saturated enough
             saturate_more = True
-        if colors[0][5] == "0":  # the color may not be saturated enough
+        if color[5] == "0":  # the color may not be saturated enough
             saturate_more = True
 
         if saturate_more:
-            logging.debug("  Background needs more saturation:")
-            colors[0] = util.lighten_color(colors[0], 0.03, debug=True)
-            colors[0] = util.saturate_color(colors[0], 0.40, debug=True)
+            logging.debug("Background needs more saturation:")
+            color = util.lighten_color(color, 0.03, debug=True)
+            color = util.saturate_color(color, 0.40, debug=True)
+    return color
 
-        # 16-color shading will be applied later after all adjustments
+def generic_adjust(colors, light):
+    """Generic color adjustment for themers."""
+    if light:
+        logging.debug("Light theme: Saturating and darkening all colors except 0:")
+        for i in range(1, len(colors)):
+            colors[i] = util.saturate_color(colors[i], 0.60, debug=True)
+            colors[i] = util.darken_color(colors[i], 0.5, debug=True)
+
+    # Adjust foreground color to meet white-ish thresholds
+    # colors[7] = adjust_to_fg_thresholds(colors[7], COLOR_7_MAX_SATURATION, COLOR_7_MIN_BRIGHTNESS)
 
     logging.debug("After generic_adjust:")
     palette_absolute(colors)
     return colors
-
 
 def saturate_colors(colors, amount):
     """Saturate all colors."""
@@ -291,7 +307,7 @@ def ensure_contrast(colors, contrast, light, image):
     # Determine which colors should be modified / checked
     # ! For the time being this is just going to modify all the colors except
     # 0 and 15
-    colors_to_contrast = range(1, 7)
+    colors_to_contrast = range(1, len(colors) - 1)
 
     # Modify colors
     for index in colors_to_contrast:
@@ -318,7 +334,7 @@ def ensure_contrast(colors, contrast, light, image):
                     [
                         int(channel * 255)
                         for channel in colorsys.hsv_to_rgb(h, s, 1)
-                    ]
+                    ]  # type: ignore
                 )
             ).w3_luminance
             >= luminance_desired
@@ -362,7 +378,7 @@ def binary_luminance_adjust(
                     [
                         int(channel * 255)
                         for channel in colorsys.hsv_to_rgb(hue, s, v)
-                    ]
+                    ]  # type: ignore
                 )
             ).w3_luminance
             >= luminance_desired
@@ -376,7 +392,7 @@ def binary_luminance_adjust(
             v_min = v
 
     return util.rgb_to_hex(
-        [int(channel * 255) for channel in colorsys.hsv_to_rgb(hue, s, v)]
+        [int(channel * 255) for channel in colorsys.hsv_to_rgb(hue, s, v)]  # type: ignore
     )
 
 def cache_fname(img, backend, light, cache_dir):
@@ -407,6 +423,65 @@ def get_backend(backend):
 
     return backend
 
+def get_brightness(color: HexColor) -> float:
+    """Calculate brightness of a hex color (0.0 to 1.0)."""
+    r, g, b = util.hex_to_rgb(color)
+    h, s, v = colorsys.rgb_to_hsv(r/255.0, g/255.0, b/255.0)
+    return v
+
+def get_saturation(color: HexColor) -> float:
+    r, g, b = util.hex_to_rgb(color)
+    h, s, v = colorsys.rgb_to_hsv(r/255.0, g/255.0, b/255.0)
+    return s
+
+def choose_8(colors, ansi_mapping):
+    # first (darkest), last (brightest) and 6 middle colors
+    # choose either the same colors as the ansi colors
+    # or the 6 most saturated colors
+    # or the 6 most bright colors
+    # or 6 random colors
+    # for now, return 6 random colors
+    bg = colors[0]
+    fg = colors[-1]
+    middle_colors = colors[1:-1]
+
+    choose_method = ARGS.choose or "brightness"
+    if choose_method == "random":
+        logging.debug("Shuffling middle colors randomly")
+        random.shuffle(middle_colors)
+    elif choose_method == "brightness":
+        logging.debug("Sorting middle colors by brightness")
+        middle_colors = sorted(middle_colors, key=get_brightness, reverse=True)
+    elif choose_method == "saturation":
+        logging.debug("Sorting middle colors by saturation")
+        middle_colors = sorted(middle_colors, key=get_saturation, reverse=True)
+    elif choose_method == "ansi":
+        logging.debug("Choosing middle colors based on ANSI mapping")
+        middle_colors = [ansi_mapping[color] for color in ["red", "green", "yellow", "blue", "magenta", "cyan"]]
+    elif choose_method == "ansi-shuffle":
+        logging.debug("Choosing middle colors based on ANSI mapping and shuffling")
+        middle_colors = [ansi_mapping[color] for color in ["red", "green", "yellow", "blue", "magenta", "cyan"]]
+        random.shuffle(middle_colors)
+    elif choose_method == "ansi-brightness":
+        logging.debug("Choosing middle colors based on ANSI mapping and sorting by brightness")
+        middle_colors = [ansi_mapping[color] for color in ["red", "green", "yellow", "blue", "magenta", "cyan"]]
+        middle_colors = sorted(middle_colors, key=get_brightness, reverse=True)
+    elif choose_method == "ansi-saturation":
+        logging.debug("Choosing middle colors based on ANSI mapping and sorting by saturation")
+        middle_colors = [ansi_mapping[color] for color in ["red", "green", "yellow", "blue", "magenta", "cyan"]]
+        middle_colors = sorted(middle_colors, key=get_saturation, reverse=True)
+    elif choose_method == "backend":
+        logging.debug("Keeping original middle colors order from backend")
+    else:
+        logging.error(f"Unknown choose method: {choose_method}, defaulting to brightness")
+        sys.exit(1)
+
+
+    selected = [bg] + middle_colors[:6] + [fg]
+    logging.debug("Selected 8 colors:")
+    palette_absolute(selected)
+    return selected
+
 def get(img, cache_dir=None):
     """Generate a palette."""
     if cache_dir is None:
@@ -414,7 +489,8 @@ def get(img, cache_dir=None):
     # Get values from global args
     light = ARGS.light
     backend = ARGS.backend or "wal"
-    sat = ARGS.saturate
+    saturation_to_add = ARGS.saturate / 100 if ARGS.saturate else 0
+    min_brightness = ARGS.brightness / 100 if ARGS.brightness else 0
     no_cache = ARGS.no_cache
     contrast = ARGS.contrast
 
@@ -441,15 +517,16 @@ def get(img, cache_dir=None):
     logging.debug("Backend generated colors:")
     palette_absolute(colors)
 
-    # Post-processing steps from command-line arguments
-    colors = saturate_colors(colors, sat)
-
-    if sat:
+    if saturation_to_add:
+        # Post-processing steps from command-line arguments
+        colors = saturate_colors(colors, saturation_to_add)
         logging.debug("After saturation adjustment:")
         palette_absolute(colors)
-    colors = brighten_colors(colors, 0.4)
-    logging.debug("After brightness adjustment:")
-    palette_absolute(colors)
+
+    if min_brightness:
+        colors = brighten_colors(colors, min_brightness)
+        logging.debug("After brightness adjustment:")
+        palette_absolute(colors)
 
     if contrast:
         colors = ensure_contrast(colors, contrast, light, img)
@@ -465,15 +542,20 @@ def get(img, cache_dir=None):
     ansi_values = [ansi_mapping[key] for key in ansi_order]
     palette_absolute(ansi_values)
 
+    colors = choose_8(colors, ansi_mapping)
     colors_dict = colors_to_base_dict(colors)
     colors_dict.update(ansi_mapping)
 
+    colors_dict[7] = adjust_to_fg_thresholds(colors_dict[7], COLOR_7_MAX_SATURATION, COLOR_7_MIN_BRIGHTNESS)
+
     # 16 color shading
-    cols16 = ARGS.cols16
-    logging.debug(f"Applying final 16-color shading with strategy {cols16}:")
-    shade_16(colors_dict, light, cols16)
+    shading = ARGS.shading
+    logging.debug(f"Applying final 16-color shading with strategy {shading}:")
+    shade_16(colors_dict, light, shading)
     logging.debug("After 16-color shading:")
     palette_absolute(colors_dict[i] for i in range(16))
+
+    colors_dict[15] = adjust_to_fg_thresholds(colors_dict[15], FG_MAX_SATURATION, FG_MIN_BRIGHTNESS)
 
     logging.debug(f"ANSI bright colors:")
     # Print in same order as base ANSI colors: black, red, green, yellow, blue, magenta, cyan, white

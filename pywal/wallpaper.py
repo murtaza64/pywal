@@ -401,8 +401,7 @@ def create_blurred_wallpaper(img):
     safe_filename = re.sub(r'[^a-zA-Z0-9._-]', '_', img)
     cached_blur_path = os.path.join(blur_cache, safe_filename)
     if os.path.isfile(cached_blur_path):
-        logging.info("Using cached blurred wallpaper.")
-        return
+        logging.info("Using cached blurred wallpaper at %s", cached_blur_path)
     else:
         if not shutil.which("magick"):
             logging.warning("ImageMagick not found, cannot create blurred wallpaper.")

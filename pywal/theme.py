@@ -182,11 +182,11 @@ def file(input_file, light=False):
             get_cache_file("last_used_theme"),
         )
         r_theme = parse(theme_file)
-        cols16 = ARGS.cols16
-        if cols16:
+        shading = ARGS.shading
+        if shading:
             if r_theme["colors"]["color1"] == r_theme["colors"]["color9"]:
                 logging.info("requested theme uses 9 shades, converting to 16")
-                colors.shade_16(r_theme["colors"], light, cols16)
+                colors.shade_16(r_theme["colors"], light, shading)
         return r_theme
 
     logging.error("No %s colorscheme file found.", bri)

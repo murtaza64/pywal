@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Test Page</title>
+    <style>
+        body {
+            font-family: 'UbuntuMono Nerd Font', monospace, 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
+            transition: background-color 0.3s ease;
+            background-color: #808080;
+            color: white;
+        }
+
+        .color-sections {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .color-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 6px;
+        }
+
+        .color-section h2 {
+            margin-top: 0;
+            text-align: center;
+            font-size: 1.5em;
+            border-bottom: 2px solid #cdd6f4;
+            padding-bottom: 10px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid #555;
+            border-radius: 4px;
+            color: white;
+            font-family: inherit;
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .input-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-item label {
+            font-size: 0.9em;
+            margin-bottom: 3px;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="color-sections">
+            <!-- RGB Section -->
+            <div class="color-section">
+                <h2>RGB</h2>
+                <div class="input-group">
+                    <label for="rgb-r-slider">Red:</label>
+                    <input type="range" id="rgb-r-slider" min="0" max="255" value="128">
+                    <div class="input-row">
+                        <div class="input-item">
+                            <label>0-255:</label>
+                            <input type="number" id="rgb-r-scaled" min="0" max="255" value="128">
+                        </div>
+                        <div class="input-item">
+                            <label>0-1:</label>
+                            <input type="number" id="rgb-r-norm" min="0" max="1" step="0.01" value="0.50">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="rgb-g-slider">Green:</label>
+                    <input type="range" id="rgb-g-slider" min="0" max="255" value="128">
+                    <div class="input-row">
+                        <div class="input-item">
+                            <label>0-255:</label>
+                            <input type="number" id="rgb-g-scaled" min="0" max="255" value="128">
+                        </div>
+                        <div class="input-item">
+                            <label>0-1:</label>
+                            <input type="number" id="rgb-g-norm" min="0" max="1" step="0.01" value="0.50">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="rgb-b-slider">Blue:</label>
+                    <input type="range" id="rgb-b-slider" min="0" max="255" value="128">
+                    <div class="input-row">
+                        <div class="input-item">
+                            <label>0-255:</label>
+                            <input type="number" id="rgb-b-scaled" min="0" max="255" value="128">
+                        </div>
+                        <div class="input-item">
+                            <label>0-1:</label>
+                            <input type="number" id="rgb-b-norm" min="0" max="1" step="0.01" value="0.50">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="hex-input">Hex Color:</label>
+                    <input type="text" id="hex-input" value="#808080" placeholder="#RRGGBB">
+                </div>
+            </div>
+
+            <!-- HSV Section -->
+            <div class="color-section">
+                <h2>HSV</h2>
+                <div class="input-group">
+                    <label for="hsv-h-slider">Hue:</label>
+                    <input type="range" id="hsv-h-slider" min="0" max="360" value="0">
+                    <div class="input-row">
+                        <div class="input-item">
+                            <label>0-360°:</label>
+                            <input type="number" id="hsv-h-scaled" min="0" max="360" value="0">
+                        </div>
+                        <div class="input-item">
+                            <label>0-1:</label>
+                            <input type="number" id="hsv-h-norm" min="0" max="1" step="0.01" value="0.00">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="hsv-s-slider">Saturation:</label>
+                    <input type="range" id="hsv-s-slider" min="0" max="100" value="0">
+                    <div class="input-row">
+                        <div class="input-item">
+                            <label>0-100%:</label>
+                            <input type="number" id="hsv-s-scaled" min="0" max="100" value="0">
+                        </div>
+                        <div class="input-item">
+                            <label>0-1:</label>
+                            <input type="number" id="hsv-s-norm" min="0" max="1" step="0.01" value="0.00">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="hsv-v-slider">Value:</label>
+                    <input type="range" id="hsv-v-slider" min="0" max="100" value="50">
+                    <div class="input-row">
+                        <div class="input-item">
+                            <label>0-100%:</label>
+                            <input type="number" id="hsv-v-scaled" min="0" max="100" value="50">
+                        </div>
+                        <div class="input-item">
+                            <label>0-1:</label>
+                            <input type="number" id="hsv-v-norm" min="0" max="1" step="0.01" value="0.50">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HSL Section -->
+            <div class="color-section">
+                <h2>HSL</h2>
+                <div class="input-group">
+                    <label for="hsl-h-slider">Hue:</label>
+                    <input type="range" id="hsl-h-slider" min="0" max="360" value="0">
+                    <div class="input-row">
+                        <div class="input-item">
+                            <label>0-360°:</label>
+                            <input type="number" id="hsl-h-scaled" min="0" max="360" value="0">
+                        </div>
+                        <div class="input-item">
+                            <label>0-1:</label>
+                            <input type="number" id="hsl-h-norm" min="0" max="1" step="0.01" value="0.00">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="hsl-s-slider">Saturation:</label>
+                    <input type="range" id="hsl-s-slider" min="0" max="100" value="0">
+                    <div class="input-row">
+                        <div class="input-item">
+                            <label>0-100%:</label>
+                            <input type="number" id="hsl-s-scaled" min="0" max="100" value="0">
+                        </div>
+                        <div class="input-item">
+                            <label>0-1:</label>
+                            <input type="number" id="hsl-s-norm" min="0" max="1" step="0.01" value="0.00">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="hsl-l-slider">Lightness:</label>
+                    <input type="range" id="hsl-l-slider" min="0" max="100" value="50">
+                    <div class="input-row">
+                        <div class="input-item">
+                            <label>0-100%:</label>
+                            <input type="number" id="hsl-l-scaled" min="0" max="100" value="50">
+                        </div>
+                        <div class="input-item">
+                            <label>0-1:</label>
+                            <input type="number" id="hsl-l-norm" min="0" max="1" step="0.01" value="0.50">
+                        </div>
+                    </div>
+                </div>
+            </div>
+    </div>
+
+    <script>
+        let updating = false; // Prevent circular updates
+
+        // Color conversion functions
+        function rgbToHex(r, g, b) {
+            return "#" + [r, g, b].map(x => {
+                const hex = Math.round(x).toString(16);
+                return hex.length === 1 ? "0" + hex : hex;
+            }).join("");
+        }
+
+        function getContrastColor(r, g, b) {
+            // Calculate relative luminance
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            // Return black for light backgrounds, white for dark backgrounds
+            return luminance > 0.5 ? '#000000' : '#ffffff';
+        }
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+
+        function rgbToHsv(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+            const d = max - min;
+            const s = max === 0 ? 0 : d / max;
+            const v = max;
+            let h;
+
+            if (d === 0) {
+                h = 0;
+            } else {
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+
+            return { h: h * 360, s: s * 100, v: v * 100 };
+        }
+
+        function hsvToRgb(h, s, v) {
+            h /= 360; s /= 100; v /= 100;
+            const c = v * s;
+            const x = c * (1 - Math.abs((h * 6) % 2 - 1));
+            const m = v - c;
+            let r, g, b;
+
+            if (h < 1/6) { r = c; g = x; b = 0; }
+            else if (h < 2/6) { r = x; g = c; b = 0; }
+            else if (h < 3/6) { r = 0; g = c; b = x; }
+            else if (h < 4/6) { r = 0; g = x; b = c; }
+            else if (h < 5/6) { r = x; g = 0; b = c; }
+            else { r = c; g = 0; b = x; }
+
+            return {
+                r: Math.round((r + m) * 255),
+                g: Math.round((g + m) * 255),
+                b: Math.round((b + m) * 255)
+            };
+        }
+
+        function rgbToHsl(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+            const d = max - min;
+            const l = (max + min) / 2;
+            let h, s;
+
+            if (d === 0) {
+                h = s = 0;
+            } else {
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+
+            return { h: h * 360, s: s * 100, l: l * 100 };
+        }
+
+        function hslToRgb(h, s, l) {
+            h /= 360; s /= 100; l /= 100;
+            const c = (1 - Math.abs(2 * l - 1)) * s;
+            const x = c * (1 - Math.abs((h * 6) % 2 - 1));
+            const m = l - c / 2;
+            let r, g, b;
+
+            if (h < 1/6) { r = c; g = x; b = 0; }
+            else if (h < 2/6) { r = x; g = c; b = 0; }
+            else if (h < 3/6) { r = 0; g = c; b = x; }
+            else if (h < 4/6) { r = 0; g = x; b = c; }
+            else if (h < 5/6) { r = x; g = 0; b = c; }
+            else { r = c; g = 0; b = x; }
+
+            return {
+                r: Math.round((r + m) * 255),
+                g: Math.round((g + m) * 255),
+                b: Math.round((b + m) * 255)
+            };
+        }
+
+        // Update functions
+        function updateFromRgb() {
+            if (updating) return;
+            updating = true;
+
+            const r = parseInt(document.getElementById('rgb-r-scaled').value);
+            const g = parseInt(document.getElementById('rgb-g-scaled').value);
+            const b = parseInt(document.getElementById('rgb-b-scaled').value);
+
+            // Update RGB normalized values
+            document.getElementById('rgb-r-norm').value = (r / 255).toFixed(2);
+            document.getElementById('rgb-g-norm').value = (g / 255).toFixed(2);
+            document.getElementById('rgb-b-norm').value = (b / 255).toFixed(2);
+
+            // Update RGB sliders
+            document.getElementById('rgb-r-slider').value = r;
+            document.getElementById('rgb-g-slider').value = g;
+            document.getElementById('rgb-b-slider').value = b;
+
+            const hex = rgbToHex(r, g, b);
+            const hsv = rgbToHsv(r, g, b);
+            const hsl = rgbToHsl(r, g, b);
+
+            // Update other color spaces
+            updateHexInputs(hex);
+            updateHsvInputs(hsv.h, hsv.s, hsv.v);
+            updateHslInputs(hsl.h, hsl.s, hsl.l);
+
+            updateAllPreviews(r, g, b, hex);
+            updating = false;
+        }
+
+        function updateFromHex() {
+            if (updating) return;
+            updating = true;
+
+            let hex = document.getElementById('hex-input').value;
+            if (!hex.startsWith('#')) hex = '#' + hex;
+
+            const rgb = hexToRgb(hex);
+            if (!rgb) {
+                updating = false;
+                return;
+            }
+
+            const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+            const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+            updateRgbInputs(rgb.r, rgb.g, rgb.b);
+            updateHsvInputs(hsv.h, hsv.s, hsv.v);
+            updateHslInputs(hsl.h, hsl.s, hsl.l);
+
+            updateAllPreviews(rgb.r, rgb.g, rgb.b, hex);
+            updating = false;
+        }
+
+        function updateFromHsv() {
+            if (updating) return;
+            updating = true;
+
+            const h = parseFloat(document.getElementById('hsv-h-scaled').value);
+            const s = parseFloat(document.getElementById('hsv-s-scaled').value);
+            const v = parseFloat(document.getElementById('hsv-v-scaled').value);
+
+            // Update HSV normalized values
+            document.getElementById('hsv-h-norm').value = (h / 360).toFixed(2);
+            document.getElementById('hsv-s-norm').value = (s / 100).toFixed(2);
+            document.getElementById('hsv-v-norm').value = (v / 100).toFixed(2);
+
+            // Update HSV sliders
+            document.getElementById('hsv-h-slider').value = h;
+            document.getElementById('hsv-s-slider').value = s;
+            document.getElementById('hsv-v-slider').value = v;
+
+            const rgb = hsvToRgb(h, s, v);
+            const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+            const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+            updateRgbInputs(rgb.r, rgb.g, rgb.b);
+            updateHexInputs(hex);
+            updateHslInputs(hsl.h, hsl.s, hsl.l);
+
+            updateAllPreviews(rgb.r, rgb.g, rgb.b, hex);
+            updating = false;
+        }
+
+        function updateFromHsl() {
+            if (updating) return;
+            updating = true;
+
+            const h = parseFloat(document.getElementById('hsl-h-scaled').value);
+            const s = parseFloat(document.getElementById('hsl-s-scaled').value);
+            const l = parseFloat(document.getElementById('hsl-l-scaled').value);
+
+            // Update HSL normalized values
+            document.getElementById('hsl-h-norm').value = (h / 360).toFixed(2);
+            document.getElementById('hsl-s-norm').value = (s / 100).toFixed(2);
+            document.getElementById('hsl-l-norm').value = (l / 100).toFixed(2);
+
+            // Update HSL sliders
+            document.getElementById('hsl-h-slider').value = h;
+            document.getElementById('hsl-s-slider').value = s;
+            document.getElementById('hsl-l-slider').value = l;
+
+            const rgb = hslToRgb(h, s, l);
+            const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+            const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+
+            updateRgbInputs(rgb.r, rgb.g, rgb.b);
+            updateHexInputs(hex);
+            updateHsvInputs(hsv.h, hsv.s, hsv.v);
+
+            updateAllPreviews(rgb.r, rgb.g, rgb.b, hex);
+            updating = false;
+        }
+
+        // Helper update functions
+        function updateRgbInputs(r, g, b) {
+            document.getElementById('rgb-r-scaled').value = r;
+            document.getElementById('rgb-g-scaled').value = g;
+            document.getElementById('rgb-b-scaled').value = b;
+            document.getElementById('rgb-r-norm').value = (r / 255).toFixed(2);
+            document.getElementById('rgb-g-norm').value = (g / 255).toFixed(2);
+            document.getElementById('rgb-b-norm').value = (b / 255).toFixed(2);
+            document.getElementById('rgb-r-slider').value = r;
+            document.getElementById('rgb-g-slider').value = g;
+            document.getElementById('rgb-b-slider').value = b;
+        }
+
+        function updateHexInputs(hex) {
+            document.getElementById('hex-input').value = hex;
+        }
+
+        function updateHsvInputs(h, s, v) {
+            document.getElementById('hsv-h-scaled').value = Math.round(h);
+            document.getElementById('hsv-s-scaled').value = Math.round(s);
+            document.getElementById('hsv-v-scaled').value = Math.round(v);
+            document.getElementById('hsv-h-norm').value = (h / 360).toFixed(2);
+            document.getElementById('hsv-s-norm').value = (s / 100).toFixed(2);
+            document.getElementById('hsv-v-norm').value = (v / 100).toFixed(2);
+            document.getElementById('hsv-h-slider').value = Math.round(h);
+            document.getElementById('hsv-s-slider').value = Math.round(s);
+            document.getElementById('hsv-v-slider').value = Math.round(v);
+        }
+
+        function updateHslInputs(h, s, l) {
+            document.getElementById('hsl-h-scaled').value = Math.round(h);
+            document.getElementById('hsl-s-scaled').value = Math.round(s);
+            document.getElementById('hsl-l-scaled').value = Math.round(l);
+            document.getElementById('hsl-h-norm').value = (h / 360).toFixed(2);
+            document.getElementById('hsl-s-norm').value = (s / 100).toFixed(2);
+            document.getElementById('hsl-l-norm').value = (l / 100).toFixed(2);
+            document.getElementById('hsl-h-slider').value = Math.round(h);
+            document.getElementById('hsl-s-slider').value = Math.round(s);
+            document.getElementById('hsl-l-slider').value = Math.round(l);
+        }
+
+        function updateAllPreviews(r, g, b, hex) {
+            const color = `rgb(${r}, ${g}, ${b})`;
+            const textColor = getContrastColor(r, g, b);
+            
+            // Update body background and text color
+            document.body.style.backgroundColor = color;
+            document.body.style.color = textColor;
+        }
+
+        // Event listeners
+        function setupEventListeners() {
+            // RGB events - separate handling for sliders vs inputs
+            // RGB Sliders
+            document.getElementById('rgb-r-slider').addEventListener('input', (e) => {
+                document.getElementById('rgb-r-scaled').value = e.target.value;
+                updateFromRgb();
+            });
+            document.getElementById('rgb-g-slider').addEventListener('input', (e) => {
+                document.getElementById('rgb-g-scaled').value = e.target.value;
+                updateFromRgb();
+            });
+            document.getElementById('rgb-b-slider').addEventListener('input', (e) => {
+                document.getElementById('rgb-b-scaled').value = e.target.value;
+                updateFromRgb();
+            });
+
+            // RGB Scaled inputs
+            ['rgb-r-scaled', 'rgb-g-scaled', 'rgb-b-scaled'].forEach(id => {
+                document.getElementById(id).addEventListener('input', updateFromRgb);
+            });
+
+            // RGB Normalized inputs
+            document.getElementById('rgb-r-norm').addEventListener('input', (e) => {
+                const value = Math.round(parseFloat(e.target.value) * 255);
+                document.getElementById('rgb-r-scaled').value = value;
+                updateFromRgb();
+            });
+            document.getElementById('rgb-g-norm').addEventListener('input', (e) => {
+                const value = Math.round(parseFloat(e.target.value) * 255);
+                document.getElementById('rgb-g-scaled').value = value;
+                updateFromRgb();
+            });
+            document.getElementById('rgb-b-norm').addEventListener('input', (e) => {
+                const value = Math.round(parseFloat(e.target.value) * 255);
+                document.getElementById('rgb-b-scaled').value = value;
+                updateFromRgb();
+            });
+
+            // Hex events
+            document.getElementById('hex-input').addEventListener('input', updateFromHex);
+
+            // HSV Sliders
+            document.getElementById('hsv-h-slider').addEventListener('input', (e) => {
+                document.getElementById('hsv-h-scaled').value = e.target.value;
+                updateFromHsv();
+            });
+            document.getElementById('hsv-s-slider').addEventListener('input', (e) => {
+                document.getElementById('hsv-s-scaled').value = e.target.value;
+                updateFromHsv();
+            });
+            document.getElementById('hsv-v-slider').addEventListener('input', (e) => {
+                document.getElementById('hsv-v-scaled').value = e.target.value;
+                updateFromHsv();
+            });
+
+            // HSV Scaled inputs
+            ['hsv-h-scaled', 'hsv-s-scaled', 'hsv-v-scaled'].forEach(id => {
+                document.getElementById(id).addEventListener('input', updateFromHsv);
+            });
+
+            // HSV Normalized inputs
+            document.getElementById('hsv-h-norm').addEventListener('input', (e) => {
+                const value = Math.round(parseFloat(e.target.value) * 360);
+                document.getElementById('hsv-h-scaled').value = value;
+                updateFromHsv();
+            });
+            document.getElementById('hsv-s-norm').addEventListener('input', (e) => {
+                const value = Math.round(parseFloat(e.target.value) * 100);
+                document.getElementById('hsv-s-scaled').value = value;
+                updateFromHsv();
+            });
+            document.getElementById('hsv-v-norm').addEventListener('input', (e) => {
+                const value = Math.round(parseFloat(e.target.value) * 100);
+                document.getElementById('hsv-v-scaled').value = value;
+                updateFromHsv();
+            });
+
+            // HSL Sliders
+            document.getElementById('hsl-h-slider').addEventListener('input', (e) => {
+                document.getElementById('hsl-h-scaled').value = e.target.value;
+                updateFromHsl();
+            });
+            document.getElementById('hsl-s-slider').addEventListener('input', (e) => {
+                document.getElementById('hsl-s-scaled').value = e.target.value;
+                updateFromHsl();
+            });
+            document.getElementById('hsl-l-slider').addEventListener('input', (e) => {
+                document.getElementById('hsl-l-scaled').value = e.target.value;
+                updateFromHsl();
+            });
+
+            // HSL Scaled inputs
+            ['hsl-h-scaled', 'hsl-s-scaled', 'hsl-l-scaled'].forEach(id => {
+                document.getElementById(id).addEventListener('input', updateFromHsl);
+            });
+
+            // HSL Normalized inputs
+            document.getElementById('hsl-h-norm').addEventListener('input', (e) => {
+                const value = Math.round(parseFloat(e.target.value) * 360);
+                document.getElementById('hsl-h-scaled').value = value;
+                updateFromHsl();
+            });
+            document.getElementById('hsl-s-norm').addEventListener('input', (e) => {
+                const value = Math.round(parseFloat(e.target.value) * 100);
+                document.getElementById('hsl-s-scaled').value = value;
+                updateFromHsl();
+            });
+            document.getElementById('hsl-l-norm').addEventListener('input', (e) => {
+                const value = Math.round(parseFloat(e.target.value) * 100);
+                document.getElementById('hsl-l-scaled').value = value;
+                updateFromHsl();
+            });
+        }
+
+        // Initialize
+        setupEventListeners();
+        updateFromRgb(); // Initialize with default gray color
+    </script>
+</body>
+</html>

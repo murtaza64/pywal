@@ -25,7 +25,7 @@ from . import sequences
 from . import theme
 from . import util
 from . import wallpaper
-from .print import palette
+from .print import palette, print_palette_settings, display_palette_and_settings, print_wallpaper_name
 
 
 show_colorama_warning = False
@@ -111,7 +111,8 @@ def run():
 
     if sys.stdout.isatty():
         print()
-        palette(colors_plain)
+        print_wallpaper_name(colors_plain.get("wallpaper"), colors_plain)
+        display_palette_and_settings(colors_plain, ARGS)
 
     if ARGS.then:
         for cmd in ARGS.then:
@@ -123,12 +124,11 @@ def main():
     util.create_dir(os.path.join(CONF_DIR, "colorschemes/light/"))
     util.create_dir(os.path.join(CONF_DIR, "colorschemes/dark/"))
 
+    parse_args()
+
     if show_colorama_warning:
         logging.warning("colorama is not present")
-
-    parse_args()
     
-    util.setup_logging(level=logging.DEBUG if ARGS.debug else logging.INFO)
     process_args_exit()
 
     run()

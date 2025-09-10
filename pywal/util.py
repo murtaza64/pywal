@@ -13,6 +13,8 @@ import subprocess
 import sys
 import hashlib
 import copy
+
+from pywal.types import RGB, HexColor
 from .settings import XDG_CACHE_DIR
 
 
@@ -297,7 +299,7 @@ def setup_logging(level=logging.INFO):
             "%(message)s"
         ),
         level=level,
-        stream=sys.stdout,
+        stream=sys.stderr,
     )
     logging.addLevelName(logging.ERROR, "\033[1;31mE")
     logging.addLevelName(logging.INFO, "\033[1;32mI")
@@ -305,9 +307,9 @@ def setup_logging(level=logging.INFO):
     logging.addLevelName(logging.DEBUG, "\033[1;34mD")
 
 
-def hex_to_rgb(color):
+def hex_to_rgb(color: HexColor) -> RGB:
     """Convert a hex color to rgb."""
-    return tuple(bytes.fromhex(color.strip("#")))
+    return tuple(bytes.fromhex(color.strip("#")))  # type: ignore
 
 
 def hex_to_xrgba(color):
@@ -316,8 +318,8 @@ def hex_to_xrgba(color):
     return "%s%s/%s%s/%s%s/ff" % (*col,)
 
 
-def rgb_to_hex(color):
-    """Convert an rgb color to hex."""
+def rgb_to_hex(color: RGB) -> HexColor:
+    """Convert an rgb color (0-255) to hex."""
     return "#%02x%02x%02x" % (*color,)
 
 

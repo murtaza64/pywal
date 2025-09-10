@@ -142,7 +142,7 @@ def choose_colors_for_each_target2(generated_palette):
     avg_s = sum(rgb_to_hsv(*color)[1] for color in generated_palette) / len(generated_palette)
     avg_v = sum(rgb_to_hsv(*color)[2] for color in generated_palette) / len(generated_palette)
     
-    targets_to_fix = ["red", "yellow", "green"]
+    targets_to_fix = ["red", "yellow", "green", "blue"]
     
     for target, hue in TARGET_HUES.items():
         candidate_color = get_closest_palette_color(target, generated_palette)
