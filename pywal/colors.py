@@ -58,9 +58,9 @@ def colors_to_dict(colors: dict, img):
         "wallpaper": normalize_img_path(img),
         "alpha": util.Color.alpha_num,
         "special": {
-            "background": colors[0],
-            "foreground": colors[15],
-            "cursor": colors[15],
+            "background": colors["background"],
+            "foreground": colors["foreground"],
+            "cursor": colors["foreground"],
         },
     }
     # Convert integer colors to color0, color1, ...
@@ -71,7 +71,7 @@ def colors_to_dict(colors: dict, img):
     surface_colors = {}
     for i in range(6):
         shade_amount = (i + 1) * (0.75 / 7)  # Evenly spaced from 0 to 0.75 exclusive: ~0.107, 0.214, 0.321, 0.429, 0.536, 0.643
-        surface_colors[f"surface{i}"] = util.lighten_color(colors["color0"], shade_amount)
+        surface_colors[f"surface{i}"] = util.lighten_color(colors["background"], shade_amount)
     
     colors.update(surface_colors)
 
@@ -151,7 +151,7 @@ def shade_16(colors, light, shading):
     shading: str [lighten|darken] - method to generate the shades"""
 
     dark_to_light_map = {k: v for k, v in {
-        # omit 0 and 7 (bg and fg) for custom handling
+        0: 8,
         1: 9,
         2: 10,
         3: 11,
@@ -166,7 +166,7 @@ def shade_16(colors, light, shading):
         "blue": "bright_blue",
         "magenta": "bright_magenta",
         "cyan": "bright_cyan",
-        # "white": "bright_white",
+        "white": "bright_white",
     }.items() if k in colors}
 
     # middle colors
@@ -189,7 +189,7 @@ def shade_16(colors, light, shading):
     if light:
         # Light theme: Generate colors 8-15 based on colors 0-7
         logging.debug("    Light theme - Generating bright colors 8-15:")
-        colors[8] = util.darken_color(colors[0], 0.25, debug=True)
+        colors["bright_black"] = util.darken_color(colors["background"], 0.25, debug=True)
         # colors[15] = util.darken_color(colors[0], 0.75)
     else:
         # Dark theme: Generate colors 8-15 based on colors 0-7
@@ -197,13 +197,14 @@ def shade_16(colors, light, shading):
         # colors[15] = util.lighten_color(colors[0], 0.75, debug=True)
 
         # bright bg
-        color8 = util.lighten_color(colors[0], 0.35)
-        color8 = util.saturate_color(color8, 0.10)
-        colors[8] = color8
+        bright_black = util.lighten_color(colors["background"], 0.35)
+        bright_black = util.saturate_color(bright_black, 0.10)
+        colors["bright_black"] = bright_black
 
-    colors["white"] = colors[7]
-    colors["bright_white"] = colors[15]
-    colors["bright_black"] = colors[8]
+    # colors["white"] = colors[7]
+    # colors["bright_white"] = colors[15]
+    # colors["bright_black"] = colors[8]
+    colors["foreground"] = colors["bright_white"]
 
 def adjust_background(color, light):
     if light:
@@ -477,10 +478,20 @@ def choose_8(colors, ansi_mapping):
         sys.exit(1)
 
 
-    selected = [bg] + middle_colors[:6] + [fg]
-    logging.debug("Selected 8 colors:")
+    while len(middle_colors) < 8:
+        logging.warning("Not enough middle colors, padding with foreground color")
+        middle_colors.append(fg)  # TODO pad with fg color if not enough colors
+
+    colors_dict: dict[int | str, str] = {
+        "background": bg,
+        "white": fg,
+    }   
+    for i, color in enumerate(middle_colors[:8]):
+        colors_dict[i] = color
+    selected = [bg] + middle_colors[:8] + [fg]
+    logging.debug("Selected bg + 8 + fg colors:")
     palette_absolute(selected)
-    return selected
+    return colors_dict
 
 def get(img, cache_dir=None):
     """Generate a palette."""
@@ -517,6 +528,8 @@ def get(img, cache_dir=None):
     logging.debug("Backend generated colors:")
     palette_absolute(colors)
 
+    colors[0] = adjust_background(colors[0], light)
+
     if saturation_to_add:
         # Post-processing steps from command-line arguments
         colors = saturate_colors(colors, saturation_to_add)
@@ -542,20 +555,20 @@ def get(img, cache_dir=None):
     ansi_values = [ansi_mapping[key] for key in ansi_order]
     palette_absolute(ansi_values)
 
-    colors = choose_8(colors, ansi_mapping)
-    colors_dict = colors_to_base_dict(colors)
+    colors_dict = choose_8(colors, ansi_mapping)
+    # colors_dict = colors_to_base_dict(colors)
     colors_dict.update(ansi_mapping)
 
-    colors_dict[7] = adjust_to_fg_thresholds(colors_dict[7], COLOR_7_MAX_SATURATION, COLOR_7_MIN_BRIGHTNESS)
+    colors_dict["white"] = adjust_to_fg_thresholds(colors_dict[7], COLOR_7_MAX_SATURATION, COLOR_7_MIN_BRIGHTNESS)
 
     # 16 color shading
     shading = ARGS.shading
     logging.debug(f"Applying final 16-color shading with strategy {shading}:")
     shade_16(colors_dict, light, shading)
     logging.debug("After 16-color shading:")
-    palette_absolute(colors_dict[i] for i in range(16))
+    palette_absolute(colors_dict)
 
-    colors_dict[15] = adjust_to_fg_thresholds(colors_dict[15], FG_MAX_SATURATION, FG_MIN_BRIGHTNESS)
+    colors_dict["foreground"] = adjust_to_fg_thresholds(colors_dict[15], FG_MAX_SATURATION, FG_MIN_BRIGHTNESS)
 
     logging.debug(f"ANSI bright colors:")
     # Print in same order as base ANSI colors: black, red, green, yellow, blue, magenta, cyan, white

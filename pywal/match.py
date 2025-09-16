@@ -1,6 +1,7 @@
 from colorsys import rgb_to_hsv, hsv_to_rgb
 from typing import List, Tuple
 from . import util
+from .util import VERBOSE
 import logging
 
 def print_colored_square(r, g, b):
@@ -10,25 +11,6 @@ def print_colored_square(r, g, b):
 def get_colored_square(r, g, b):
     r, g, b = round(r*255), round(g*255), round(b*255)
     return f"\033[48;2;{r};{g};{b}m  \033[0m"
-
-def print_palette(colors):
-    for color in colors:
-        print_colored_square(*color)
-        print_colored_square(*color)
-        print_color(color)
-
-def print_color(color):
-        greyish = 'greyish' if is_greyish(*color) else ''
-        h, s, v = rgb_to_hsv(*color)
-        h = round(h * 360)
-        s = f"{round(s * 100)}%"
-        v = f"{round(v / 255 * 100)}%"
-        logging.debug(f' {h} {s} {v} {greyish}')
-
-# FILENAME = "/Users/murtaza/wallpapers/outrun.jpg"
-#
-# palette = ColorThief(FILENAME).get_palette(color_count=8)
-# print_palette(palette)
 
 TARGET_HUES = {k: v / 360 for k, v in {
     "red": 0,
@@ -94,7 +76,7 @@ def get_closest_palette_color(target, palette):
         sq = get_colored_square(*color)
         hsv = rgb_to_hsv(*color)
         distance = color_distance(hsv, TARGET_COLORS[target])
-        logging.debug(f"{sq}{sq} ({hsvformat(hsv)}) d={distance:.2f}")
+        logging.log(VERBOSE, f"{sq}{sq} ({hsvformat(hsv)}) d={distance:.2f}")
         if distance < closest_distance:
             closest_distance = distance
             closest = color
@@ -155,6 +137,7 @@ def choose_colors_for_each_target2(generated_palette):
             
             # print(h, target_hue, circle_distance(h, target_hue), tol)
             logging.debug(f"{target}: target_hue={target_hue*360} candidate_hue={h*360:.1f} distance={circle_distance(h, target_hue)*360:.1f} tolerance={tol*360}")
+            logging.log(VERBOSE, f"{target}: target_hue={target_hue*360} candidate_hue={h*360:.1f} distance={circle_distance(h, target_hue)*360:.1f} tolerance={tol*360}")
             if circle_distance(h, target_hue) > tol:
                 # Bad match - interpolate and leave original in pool
                 palette[target] = interpolate_by_avg_sv(candidate_color, target, tol, avg_s, avg_v)
@@ -200,7 +183,7 @@ def interpolate_hue(color_map, target: str):
     new_s = (s + s2) / 2
     new_v = (v + v2) / 2
     new_color = tuple(int(p) for p in hsv_to_rgb(new_h, new_s, new_v))
-    logging.debug("interpolated between", next_name, "and", prev_name, "to get", target, "color:")
+    logging.log(VERBOSE, "interpolated between", next_name, "and", prev_name, "to get", target, "color:")
     # print_colored_square(*new_color)
     # print_colored_square(*new_color)
     # print(' ', new_color)
@@ -223,7 +206,7 @@ def interpolate_by_avg_sv(original_color, target: str, tolerance, avg_s, avg_v):
     avg_v = avg_v * 0.8
     new_color = tuple(p for p in hsv_to_rgb(new_h, avg_s, avg_v))
     sq = get_colored_square(*new_color)
-    logging.debug(f"interpolated by avg s and v to get {target} color: {sq}{sq}")
+    logging.log(VERBOSE, f"interpolated by avg s and v to get {target} color: {sq}{sq}")
     # print_colored_square(*new_color)
     # print_colored_square(*new_color)
     # print()
@@ -246,13 +229,12 @@ def categorize_palette(colors):
     logging.debug("categorizing palette")
     for color in colors:
         sq = get_colored_square(*color)
-        # print_color(color)
         target = get_closest_target(color)
         hue = int(rgb_to_hsv(*color)[0] * 360)
         hsv = rgb_to_hsv(*color)
         target_hsv = TARGET_COLORS[target]
         d = color_distance(hsv, target_hsv)
-        logging.debug(f"{sq*2}{sq} ({hsvformat(hsv)}) ~ {target}  d={d:.2f}")
+        logging.log(VERBOSE, f"{sq*2}{sq} ({hsvformat(hsv)}) ~ {target}  d={d:.2f}")
 
 def get_ansi_color_mapping(raw_palette: List[str]) -> dict:
     """Get a mapping of ANSI color names to hex colors from a palette.

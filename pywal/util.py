@@ -17,6 +17,9 @@ import copy
 from pywal.types import RGB, HexColor
 from .settings import XDG_CACHE_DIR
 
+# Custom log level (below DEBUG which is 10)
+VERBOSE = 5
+
 
 def get_cache_dir():
     """Get the cache directory from global args or environment."""
@@ -32,11 +35,11 @@ def get_cache_file(*path: str) -> str:
     """Get a filename from the cache directory."""
     return os.path.join(get_cache_dir(), *path)
 
-def print_color_change(old_color, new_color, operation):
+def print_color_change(old_color, new_color, operation, level=VERBOSE):
     """Log a color change with visual representation."""
     r1, g1, b1 = hex_to_rgb(old_color)
     r2, g2, b2 = hex_to_rgb(new_color)
-    logging.debug(f"    {operation}: \033[48;2;{r1};{g1};{b1}m  \033[0m {old_color} -> \033[48;2;{r2};{g2};{b2}m  \033[0m {new_color}")
+    logging.log(level, f"    {operation}: \033[48;2;{r1};{g1};{b1}m  \033[0m {old_color} -> \033[48;2;{r2};{g2};{b2}m  \033[0m {new_color}")
 
 has_fcntl = False
 fcntl_warning = ""
@@ -292,6 +295,15 @@ def create_dir(directory):
 
 def setup_logging(level=logging.INFO):
     """Logging config."""
+    # Add VERBOSE log level between INFO and DEBUG
+    logging.addLevelName(VERBOSE, "VERBOSE")
+    
+    def verbose(self, message, *args, **kwargs):
+        if self.isEnabledFor(VERBOSE):
+            self._log(VERBOSE, message, args, **kwargs)
+    
+    logging.Logger.verbose = verbose
+    
     logging.basicConfig(
         format=(
             "[%(levelname)s\033[0m] "
@@ -305,6 +317,7 @@ def setup_logging(level=logging.INFO):
     logging.addLevelName(logging.INFO, "\033[1;32mI")
     logging.addLevelName(logging.WARNING, "\033[1;33mW")
     logging.addLevelName(logging.DEBUG, "\033[1;34mD")
+    logging.addLevelName(VERBOSE, "\033[1;35mV")  # Magenta for verbose
 
 
 def hex_to_rgb(color: HexColor) -> RGB:
@@ -328,8 +341,7 @@ def darken_color(color, amount, debug=False):
     old_color = color
     new_color_rgb = [int(col * (1 - amount)) for col in hex_to_rgb(color)]
     new_color = rgb_to_hex(new_color_rgb)
-    if debug:
-        print_color_change(old_color, new_color, f"darken({amount})")
+    print_color_change(old_color, new_color, f"darken({amount})")
     return new_color
 
 
@@ -338,8 +350,7 @@ def lighten_color(color, amount, debug=False):
     old_color = color
     new_color_rgb = [int(col + (255 - col) * amount) for col in hex_to_rgb(color)]
     new_color = rgb_to_hex(new_color_rgb)
-    if debug:
-        print_color_change(old_color, new_color, f"lighten({amount})")
+    print_color_change(old_color, new_color, f"lighten({amount})")
     return new_color
 
 
@@ -387,8 +398,7 @@ def saturate_color(color, amount, debug=False):
     r, g, b = [x * 255.0 for x in (r, g, b)]
 
     new_color = rgb_to_hex((int(r), int(g), int(b)))
-    if debug:
-        print_color_change(old_color, new_color, f"saturate({amount})")
+    print_color_change(old_color, new_color, f"saturate({amount})")
     return new_color
 
 def brighten_color(color, min_brightness, debug=False):
@@ -402,8 +412,7 @@ def brighten_color(color, min_brightness, debug=False):
     r, g, b = [x * 255.0 for x in (r, g, b)]
 
     new_color = rgb_to_hex((int(r), int(g), int(b)))
-    if debug:
-        print_color_change(old_color, new_color, f"brighten({min_brightness})")
+    print_color_change(old_color, new_color, f"brighten({min_brightness})")
     return new_color
 
 
@@ -424,8 +433,7 @@ def add_saturation(color, amount, debug=False):
     r, g, b = [x * 255.0 for x in (r, g, b)]
 
     new_color = rgb_to_hex((int(r), int(g), int(b)))
-    if debug:
-        print_color_change(old_color, new_color, f"add_saturation({amount})")
+    print_color_change(old_color, new_color, f"add_saturation({amount})")
     return new_color
 
 
