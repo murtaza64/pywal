@@ -1,5 +1,15 @@
 const $ = (id) => document.getElementById(id)
 
+const val = (id) => {
+  const el = $(id)
+  return el ? el.value : ''
+}
+
+const isChecked = (id) => {
+  const el = $(id)
+  return !!(el && el.checked)
+}
+
 const state = {
   imagePath: null,
   lastResult: null,
@@ -30,28 +40,124 @@ function contrastRatio(bg, fg) {
 }
 
 function setReadouts() {
-  $('contrast-val').textContent = $('contrast').value
-  $('brightness-val').textContent = $('brightness').value
-  $('saturate-val').textContent = $('saturate').value
-  $('bg_chroma_floor-val').textContent = $('bg_chroma_floor').value
-  $('greyish_chroma_threshold-val').textContent = $('greyish_chroma_threshold').value
+  const c = $('contrast')
+  const b = $('brightness')
+  const s = $('saturate')
+  const si = $('subtractive_initial')
+  const bl = $('bg_lightness')
+  const bc = $('bg_chroma')
+  if (c) $('contrast-val').textContent = c.value
+  if (b) $('brightness-val').textContent = b.value
+  if (s) $('saturate-val').textContent = s.value
+  if (si) $('subtractive_initial-val').textContent = si.value
+  if (bl) $('bg_lightness-val').textContent = bl.value
+  if (bc) $('bg_chroma-val').textContent = bc.value
+}
+
+function setSubtractiveVisibility() {
+  const wrap = $('subtractive_initial-wrap')
+  const gen = $('generation_strategy')
+  if (!wrap || !gen) return
+  wrap.style.display = gen.value === 'subtractive' ? '' : 'none'
+}
+
+function setSeedVisibility() {
+  const wrap = $('seed-wrap')
+  const choose = $('choose')
+  if (!wrap || !choose) return
+  wrap.style.display = choose.value === 'random' || choose.value === 'ansi-shuffle' ? '' : 'none'
+}
+
+function randomSeedString() {
+  if (window.crypto && window.crypto.getRandomValues) {
+    try {
+      const a = new BigUint64Array(1)
+      window.crypto.getRandomValues(a)
+      return a[0].toString(10)
+    } catch (_) {
+      const a = new Uint32Array(2)
+      window.crypto.getRandomValues(a)
+      return (BigInt(a[0]) << 32n | BigInt(a[1])).toString(10)
+    }
+  }
+  return String(Math.floor(Math.random() * 1e16))
 }
 
 function paramsFromUI() {
+  const seedRaw = String(val('seed') || '').trim()
+  const seed = seedRaw === '' ? null : seedRaw
   return {
-    light: $('light').checked,
-    shading: $('shading').value,
-    generation_strategy: $('generation_strategy').value,
-    subtractive_initial: parseInt($('subtractive_initial').value || '16', 10),
-    choose: $('choose').value,
-    shuffle: $('shuffle').checked,
-    seed: $('seed').value === '' ? null : parseInt($('seed').value, 10),
-    contrast: parseFloat($('contrast').value),
-    brightness: parseFloat($('brightness').value),
-    saturate: parseFloat($('saturate').value),
-    bg_chroma_floor: parseFloat($('bg_chroma_floor').value),
-    greyish_chroma_threshold: parseFloat($('greyish_chroma_threshold').value),
+    light: isChecked('light'),
+    shading: val('shading'),
+    bg_strategy: val('bg_strategy'),
+    generation_strategy: val('generation_strategy'),
+    subtractive_initial: parseInt(val('subtractive_initial') || '16', 10),
+    choose: val('choose'),
+    seed,
+    contrast: parseFloat(val('contrast')),
+    brightness: parseFloat(val('brightness')),
+    saturate: parseFloat(val('saturate')),
+    bg_lightness: parseFloat(val('bg_lightness')),
+    bg_chroma: parseFloat(val('bg_chroma')),
   }
+}
+
+function applyParamsToUI(params) {
+  if (!params) return
+
+  if ('light' in params) {
+    const el = $('light')
+    if (el) el.checked = !!params.light
+  }
+  if ('shading' in params && params.shading) {
+    const el = $('shading')
+    if (el) el.value = params.shading
+  }
+  if ('bg_strategy' in params && params.bg_strategy) {
+    const el = $('bg_strategy')
+    if (el) el.value = params.bg_strategy
+  }
+  if ('generation_strategy' in params && params.generation_strategy) {
+    const el = $('generation_strategy')
+    if (el) el.value = params.generation_strategy
+  }
+  if ('subtractive_initial' in params && params.subtractive_initial != null) {
+    const el = $('subtractive_initial')
+    if (el) el.value = String(params.subtractive_initial)
+  }
+  if ('choose' in params && params.choose) {
+    const el = $('choose')
+    if (el) el.value = params.choose
+  }
+  if ('seed' in params) {
+    const el = $('seed')
+    if (el) el.value = params.seed == null ? '' : String(params.seed)
+  }
+  if ('contrast' in params && params.contrast != null) {
+    const el = $('contrast')
+    if (el) el.value = String(params.contrast)
+  }
+  if ('brightness' in params && params.brightness != null) {
+    const el = $('brightness')
+    if (el) el.value = String(params.brightness)
+  }
+  if ('saturate' in params && params.saturate != null) {
+    const el = $('saturate')
+    if (el) el.value = String(params.saturate)
+  }
+
+  if ('bg_lightness' in params && params.bg_lightness != null) {
+    const el = $('bg_lightness')
+    if (el) el.value = String(params.bg_lightness)
+  }
+  if ('bg_chroma' in params && params.bg_chroma != null) {
+    const el = $('bg_chroma')
+    if (el) el.value = String(params.bg_chroma)
+  }
+
+  setReadouts()
+  setSubtractiveVisibility()
+  setSeedVisibility()
 }
 
 async function api(path, opts) {
@@ -81,30 +187,14 @@ function renderSwatches(container, items, bgHex) {
   }
 }
 
-function renderStrip8x2(container, a, b) {
+function renderMain8(container, items) {
   container.innerHTML = ''
-  const cells = [...a, ...b]
-  for (const hex of cells) {
+  for (const it of items) {
     const el = document.createElement('div')
-    el.style.background = hex
+    el.className = 'maincell'
+    el.style.background = it.hex
+    el.title = `${it.name} ${it.hex}`
     container.appendChild(el)
-  }
-}
-
-function renderAccentColumn(container, bgHex, entries) {
-  container.innerHTML = ''
-  const header = document.createElement('div')
-  header.className = 'accentlabel'
-  header.textContent = `text on ${bgHex}`
-  container.appendChild(header)
-
-  for (const e of entries) {
-    const item = document.createElement('div')
-    item.className = 'accentitem'
-    item.style.color = e.color
-    item.textContent = e.name
-    item.title = `contrast: ${contrastRatio(bgHex, e.color).toFixed(2)} (${e.color})`
-    container.appendChild(item)
   }
 }
 
@@ -119,23 +209,35 @@ function renderSurfaces(container, bgHex, items) {
     label.className = 'surface__label'
     label.style.color = bgHex
     label.textContent = `${it.name} ${it.hex}`
-    label.title = `contrast: ${contrastRatio(it.hex, bgHex).toFixed(2)}`
+    label.title = `contrast ${contrastRatio(it.hex, bgHex).toFixed(2)}`
 
     el.appendChild(label)
     container.appendChild(el)
   }
 }
 
-function renderGrid(container, items, bgHex) {
+function renderColorRows(container, bgHex, names) {
   container.innerHTML = ''
-  for (const it of items) {
-    const el = document.createElement('div')
-    el.className = 'cell'
-    el.style.background = bgHex
-    el.style.color = it.hex
-    el.textContent = `${it.name} ${it.hex}`
-    el.title = `contrast: ${contrastRatio(bgHex, it.hex).toFixed(2)}`
-    container.appendChild(el)
+  for (const name of names) {
+    const hex = state.lastResult?.colors?.[name]
+    if (!hex) continue
+
+    const row = document.createElement('div')
+    row.className = 'colorrow'
+    row.style.color = hex
+    row.title = `contrast ${contrastRatio(bgHex, hex).toFixed(2)}  ${hex}`
+
+    const n = document.createElement('div')
+    n.className = 'colorname'
+    n.textContent = name
+
+    const h = document.createElement('div')
+    h.className = 'colorhex'
+    h.textContent = hex
+
+    row.appendChild(n)
+    row.appendChild(h)
+    container.appendChild(row)
   }
 }
 
@@ -145,7 +247,7 @@ function render(result) {
   const bg = colors.background
   const fg = colors.foreground
 
-  setPreview(result.imagePath)
+  setPreview(result.imagePath, result.displayPath)
   document.documentElement.style.setProperty('--gen-bg', bg)
   document.documentElement.style.setProperty('--gen-fg', fg)
   if (colors.surface0) document.documentElement.style.setProperty('--gen-surface0', colors.surface0)
@@ -155,73 +257,60 @@ function render(result) {
   if (colors.color1) document.documentElement.style.setProperty('--accent1', colors.color1)
 
   const sample = $('sample')
-  sample.style.background = bg
+  sample.style.background = 'transparent'
   sample.style.color = fg
-  sample.querySelector('.sample__text').textContent = `bg ${bg}  fg ${fg}  contrast ${contrastRatio(bg, fg).toFixed(2)}`
 
-  const termA = []
-  const termB = []
-  for (let i = 0; i < 8; i++) termA.push(colors[`color${i}`])
-  for (let i = 8; i < 16; i++) termB.push(colors[`color${i}`])
-  renderStrip8x2($('terminal16'), termA, termB)
-
-  const ansiA = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'].map((k) => colors[k])
-  const ansiB = ['bright_black', 'bright_red', 'bright_green', 'bright_yellow', 'bright_blue', 'bright_magenta', 'bright_cyan', 'bright_white'].map((k) => colors[k])
-  renderStrip8x2($('ansi16'), ansiA, ansiB)
-
-  const cols16 = []
-  for (let i = 0; i < 16; i++) {
+  // Syntax highlighting palette.
+  for (let i = 0; i < 8; i++) {
     const k = `color${i}`
-    if (colors[k]) cols16.push({ name: k, hex: colors[k] })
+    if (colors[k]) document.documentElement.style.setProperty(`--c${i}`, colors[k])
   }
-  renderGrid($('colors16'), cols16, bg)
+
+  const main8 = []
+  for (let i = 0; i < 8; i++) {
+    const k = `color${i}`
+    if (colors[k]) main8.push({ name: k, hex: colors[k] })
+  }
+  renderMain8($('main8'), main8)
 
   const surfaces = []
+  for (let i = 2; i >= 0; i--) {
+    const k = `subsurface${i}`
+    if (colors[k]) surfaces.push({ name: k, hex: colors[k] })
+  }
   if (colors.background) surfaces.push({ name: 'background', hex: colors.background })
   for (let i = 0; i < 6; i++) {
     const k = `surface${i}`
     if (colors[k]) surfaces.push({ name: k, hex: colors[k] })
   }
-  for (let i = 0; i < 3; i++) {
-    const k = `subsurface${i}`
-    if (colors[k]) surfaces.push({ name: k, hex: colors[k] })
-  }
   renderSurfaces($('surfaces'), fg, surfaces)
 
-  const all = []
-  for (const [k, v] of Object.entries(colors)) {
-    if (!v) continue
-    if (/^surface\d+$/.test(k) || /^subsurface\d+$/.test(k)) continue
-    all.push({ name: k, color: v })
-  }
-
-  const order = (name) => {
-    if (name === 'background') return [0, 0]
-    if (name === 'foreground') return [0, 1]
-    if (name === 'cursor') return [0, 2]
-    const m = name.match(/^color(\d+)$/)
-    if (m) return [1, parseInt(m[1], 10)]
-    const ansi = ['black','red','green','yellow','blue','magenta','cyan','white']
-    const bright = ['bright_black','bright_red','bright_green','bright_yellow','bright_blue','bright_magenta','bright_cyan','bright_white']
-    const i1 = ansi.indexOf(name)
-    if (i1 >= 0) return [2, i1]
-    const i2 = bright.indexOf(name)
-    if (i2 >= 0) return [3, i2]
-    return [9, name]
-  }
-
-  all.sort((a, b) => {
-    const oa = order(a.name)
-    const ob = order(b.name)
-    if (oa[0] !== ob[0]) return oa[0] - ob[0]
-    if (oa[1] < ob[1]) return -1
-    if (oa[1] > ob[1]) return 1
-    return 0
-  })
-
-  const mid = Math.ceil(all.length / 2)
-  renderAccentColumn($('accents-left'), bg, all.slice(0, mid))
-  renderAccentColumn($('accents-right'), bg, all.slice(mid))
+  const leftNames = [
+    ...Array.from({ length: 8 }, (_, i) => `color${i}`),
+    'black',
+    'red',
+    'green',
+    'yellow',
+    'blue',
+    'magenta',
+    'cyan',
+    'white',
+  ]
+  const rightNames = [
+    ...Array.from({ length: 8 }, (_, i) => `color${i + 8}`),
+    'bright_black',
+    'bright_red',
+    'bright_green',
+    'bright_yellow',
+    'bright_blue',
+    'bright_magenta',
+    'bright_cyan',
+    'bright_white',
+  ]
+  const bottomNames = ['foreground']
+  renderColorRows($('colors-left'), bg, leftNames)
+  renderColorRows($('colors-right'), bg, rightNames)
+  renderColorRows($('colors-bottom'), bg, bottomNames)
 
   $('debug').textContent = (result.debug || []).join('\n')
 }
@@ -233,7 +322,17 @@ async function generate() {
   $('debug').textContent = 'Generating...'
   const body = JSON.stringify({ imagePath: state.imagePath, params })
   const result = await api('/api/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, body })
+  applyParamsToUI(result.params)
   render(result)
+}
+
+async function shuffle(mode) {
+  if (!state.imagePath) return
+  $('debug').textContent = mode === 'all' ? 'SHUFFLE...' : 'shuffle...'
+  const body = JSON.stringify({ imagePath: state.imagePath, mode, params: paramsFromUI() })
+  const result = await api('/api/shuffle', { method: 'POST', headers: { 'content-type': 'application/json' }, body })
+  applyParamsToUI(result.params)
+  scheduleGenerate()
 }
 
 function scheduleGenerate() {
@@ -244,7 +343,8 @@ function scheduleGenerate() {
 async function useWallpaper() {
   const info = await api('/api/wallpaper')
   state.imagePath = info.path
-  $('image-path').textContent = state.imagePath
+  if ($('image-path')) $('image-path').textContent = ''
+  setPreview(state.imagePath, info.displayPath)
   scheduleGenerate()
 }
 
@@ -253,27 +353,61 @@ async function uploadFile(file) {
   fd.append('file', file)
   const info = await api('/api/upload', { method: 'POST', body: fd })
   state.imagePath = info.path
-  $('image-path').textContent = state.imagePath
+  if ($('image-path')) $('image-path').textContent = ''
+  setPreview(state.imagePath, info.displayPath)
   scheduleGenerate()
 }
 
-function setPreview(path) {
-  const img = $('preview-img')
-  const label = $('preview-label')
+async function browse(direction) {
+  if (!state.imagePath) return
+  const body = JSON.stringify({ path: state.imagePath, direction })
+  const info = await api('/api/browse', { method: 'POST', headers: { 'content-type': 'application/json' }, body })
+  state.imagePath = info.path
+  setPreview(state.imagePath, info.displayPath)
+  scheduleGenerate()
+}
+
+function setPreview(path, displayPath) {
+  const img = $('thumb-img')
+  const label = $('thumb-label')
   if (!path) {
-    img.removeAttribute('src')
-    label.textContent = '(no image)'
+    if (img) img.removeAttribute('src')
+    if (label) label.textContent = '(no image)'
+    document.documentElement.style.setProperty('--wallpaper-url', 'none')
+    if (document.body) document.body.style.setProperty('--wallpaper-url', 'none')
     return
   }
-  img.src = `/api/image?path=${encodeURIComponent(path)}&t=${Date.now()}`
-  label.textContent = path.split('/').slice(-1)[0]
+  const src = `/api/image?path=${encodeURIComponent(path)}&t=${Date.now()}`
+  if (img) img.src = src
+  if (label) label.textContent = displayPath || path
+
+  // Background wallpaper effect (blurred + tinted via CSS).
+  const cssUrl = `url("${src}")`
+  document.documentElement.style.setProperty('--wallpaper-url', cssUrl)
+  if (document.body) document.body.style.setProperty('--wallpaper-url', cssUrl)
 }
 
 function init() {
   setReadouts()
+  setSubtractiveVisibility()
+  setSeedVisibility()
 
   $('use-wallpaper').addEventListener('click', () => useWallpaper().catch((e) => ($('debug').textContent = String(e))))
   $('regen').addEventListener('click', () => generate().catch((e) => ($('debug').textContent = String(e))))
+  $('shuffle-post').addEventListener('click', () => shuffle('post').catch((e) => ($('debug').textContent = String(e))))
+  $('shuffle-all').addEventListener('click', () => shuffle('all').catch((e) => ($('debug').textContent = String(e))))
+  $('seed-randomize').addEventListener('click', () => {
+    const el = $('seed')
+    if (!el) return
+    el.value = randomSeedString()
+    setReadouts()
+    scheduleGenerate()
+  })
+
+  const prev = $('thumb-prev')
+  const next = $('thumb-next')
+  if (prev) prev.addEventListener('click', () => browse('prev').catch((e) => ($('debug').textContent = String(e))))
+  if (next) next.addEventListener('click', () => browse('next').catch((e) => ($('debug').textContent = String(e))))
   $('file').addEventListener('change', (e) => {
     const f = e.target.files && e.target.files[0]
     if (f) uploadFile(f).catch((err) => ($('debug').textContent = String(err)))
@@ -282,21 +416,33 @@ function init() {
   const inputs = [
     'light',
     'shading',
+    'bg_strategy',
     'generation_strategy',
     'subtractive_initial',
     'choose',
-    'shuffle',
     'seed',
     'contrast',
     'brightness',
     'saturate',
-    'bg_chroma_floor',
-    'greyish_chroma_threshold',
+    'bg_lightness',
+    'bg_chroma',
   ]
 
   for (const id of inputs) {
     $(id).addEventListener('input', scheduleGenerate)
     $(id).addEventListener('change', scheduleGenerate)
+  }
+
+  const gen = $('generation_strategy')
+  if (gen) {
+    gen.addEventListener('input', setSubtractiveVisibility)
+    gen.addEventListener('change', setSubtractiveVisibility)
+  }
+
+  const choose = $('choose')
+  if (choose) {
+    choose.addEventListener('input', setSeedVisibility)
+    choose.addEventListener('change', setSeedVisibility)
   }
 
   // Auto-load current wallpaper on first load.

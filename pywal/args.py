@@ -32,6 +32,10 @@ OPTIONS_TO_SAVE = [
     "seed",
     "shading",
     "subtractive_initial",
+
+    # Background tuning
+    "bg_lightness",
+    "bg_chroma",
 ]
 
 def get_save_dict():
@@ -95,8 +99,14 @@ def get_parser():
     # === COLOR GENERATION ===
     color_group = parser.add_argument_group('Color Generation')
     # Backend selection removed: this project uses colorthief exclusively.
-    color_group.add_argument(
+    theme_mode = color_group.add_mutually_exclusive_group()
+    theme_mode.add_argument(
         "--light", "-l", action="store_true", help="Generate a light colorscheme."
+    )
+    theme_mode.add_argument(
+        "--dark",
+        action="store_true",
+        help="Generate a dark colorscheme (override a previously set --light).",
     )
     color_group.add_argument(
         "--saturate", metavar="(-100 .. 100)", help="Adjust palette saturation.", type=int
@@ -123,6 +133,21 @@ def get_parser():
         default="backend",
         choices=["backend", "average"],
         help="How to pick the background color. 'backend' uses the darkest candidate; 'average' uses the image average.",
+    )
+
+    color_group.add_argument(
+        "--bg-lightness",
+        metavar="L",
+        type=float,
+        default=None,
+        help="Override background OKLCH lightness L (0..1). If omitted, computed from the image.",
+    )
+    color_group.add_argument(
+        "--bg-chroma",
+        metavar="C",
+        type=float,
+        default=None,
+        help="Override background OKLCH chroma C. If omitted, computed from the image.",
     )
 
     color_group.add_argument(
@@ -493,8 +518,16 @@ def parse_args():
 
     if ARGS.modify:
         cli_provided_args = get_cli_provided_args()
+
+        # Treat --dark as an explicit override of the persisted --light.
+        if getattr(ARGS, "dark", False):
+            cli_provided_args.add("light")
+
         # Load settings from colors.json and override with CLI-provided args
         load_modify_settings(cli_provided_args)
+
+        if getattr(ARGS, "dark", False):
+            ARGS.light = False
 
     if not ARGS.seed:
         ARGS.seed = random.randint(0, sys.maxsize)

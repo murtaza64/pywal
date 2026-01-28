@@ -1,6 +1,7 @@
 from colorsys import rgb_to_hsv, hsv_to_rgb
 from typing import List, Tuple
 import logging
+import colorsys
 
 from . import oklab
 from .color import Color, VERBOSE
@@ -31,6 +32,22 @@ TARGET_COLORS = {
     "magenta": (300/360, 1, 1),
     "cyan": (180/360, 1, 1),
 }
+
+
+def _target_oklch_hue_rad() -> dict[str, float]:
+    """Target hues in OKLCH hue space.
+
+    Important: HSV hue degrees are not comparable to OKLCH hue radians.
+    Tolerance checks should use the same hue space as the candidate colors.
+    """
+    out: dict[str, float] = {}
+    for name, (h, s, v) in TARGET_COLORS.items():
+        rgb = colorsys.hsv_to_rgb(h, s, v)
+        out[name] = float(Color.from_srgb01(rgb).oklch.h_rad)
+    return out
+
+
+TARGET_OKLCH_HUE_RAD = _target_oklch_hue_rad()
 
 HUE_TOLERANCES = {
     "red": 0.15,
@@ -158,18 +175,18 @@ def choose_colors_for_each_target2(generated_palette: list[Color]) -> dict[str, 
         candidate_color = get_closest_palette_color(target, generated_palette)
 
         if target in targets_to_fix:
-            target_hue_rad = TARGET_HUES[target] * 6.283185307179586
+            target_hue_rad = TARGET_OKLCH_HUE_RAD[target]
             candidate_hue_rad = _normalize_rad(candidate_color.oklch.h_rad)
             tol = HUE_TOLERANCES[target]
             tol_rad = tol * 6.283185307179586
             dist_rad = _circle_distance_rad(candidate_hue_rad, target_hue_rad)
 
             logging.debug(
-                f"{target}: target_hue={TARGET_HUES[target]*360} candidate_hue={(candidate_hue_rad*180/3.141592653589793):.1f} distance={(dist_rad*180/3.141592653589793):.1f} tolerance={tol*360}"
+                f"{target}: target_hue_oklch={(target_hue_rad*180/3.141592653589793):.1f} candidate_hue_oklch={(candidate_hue_rad*180/3.141592653589793):.1f} distance={(dist_rad*180/3.141592653589793):.1f} tolerance={tol*360}"
             )
             logging.log(
                 VERBOSE,
-                f"{target}: target_hue={TARGET_HUES[target]*360} candidate_hue={(candidate_hue_rad*180/3.141592653589793):.1f} distance={(dist_rad*180/3.141592653589793):.1f} tolerance={tol*360}",
+                f"{target}: target_hue_oklch={(target_hue_rad*180/3.141592653589793):.1f} candidate_hue_oklch={(candidate_hue_rad*180/3.141592653589793):.1f} distance={(dist_rad*180/3.141592653589793):.1f} tolerance={tol*360}",
             )
 
             if dist_rad > tol_rad:
@@ -230,7 +247,7 @@ def offset_target_hue(h, target_h, push_amount=0.15):
 def interpolate_by_avg_sv(original_color: Color, target: str, tolerance_rad: float, avg_c: float, avg_l: float) -> Color:
     # Push the target hue towards the actual hue.
     candidate_hue = _normalize_rad(original_color.oklch.h_rad)
-    target_hue = TARGET_HUES[target] * 6.283185307179586
+    target_hue = TARGET_OKLCH_HUE_RAD[target]
     new_h = _offset_target_hue_rad(candidate_hue, target_hue, tolerance_rad)
 
     # Dull synthesized color since it wasn't part of the palette.
@@ -263,17 +280,12 @@ def categorize_palette(colors: list[Color]):
         d = _oklab_distance(color.oklab, TARGET_OKLAB[target])
         logging.log(VERBOSE, f"{sq*2}{sq} ({hsvformat(color.hsv)}) ~ {target}  d={d:.2f}")
 
-def get_ansi_color_mapping(darkest: Color, brightest: Color, candidates: List[Color]) -> dict[str, Color]:
-    """Get a mapping of ANSI color names to hex colors from a palette.
-    
-    Args:
-        raw_palette: List of hex color strings
-        
-    Returns:
-        dict: Mapping of color names (red, green, etc.) to hex colors
+def get_ansi_color_mapping(black: Color, white: Color, candidates: List[Color]) -> dict[str, Color]:
+    """Map palette colors to ANSI names.
+
+    `black` and `white` are terminal slots (theme background-ish / foreground-ish),
+    not literal colors.
     """
-    black = darkest
-    white = brightest
     palette = [c for c in candidates if not c.is_greyish()]
     if len(palette) < 6:
         palette = [c for c in candidates if not c.is_greyish(chroma_threshold=0.02)]

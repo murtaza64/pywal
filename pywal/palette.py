@@ -93,13 +93,22 @@ def colors_to_dict(colors: dict[int | str, Color], img):
         colors_hex[str(key)] = v.hex_color
     color_dict["colors"] = colors_hex
 
-    # Generate gradually lightened background shades
+    # Surfaces
     surface_colors: dict[str, str] = {}
-    for i in range(6):
-        shade_amount = (i + 1) * (0.75 / 7)  # Evenly spaced from 0 to 0.75 exclusive: ~0.107, 0.214, 0.321, 0.429, 0.536, 0.643
-        s = colors["background"].lighten_amount(shade_amount)
-        _log_color(f"surface{i}", s)
-        surface_colors[f"surface{i}"] = s.hex_color
+    if light:
+        # Light theme: surfaces should be darker than background.
+        for i in range(6):
+            shade_amount = (i + 1) * (0.20 / 7)  # ~0.029 .. 0.171
+            s = colors["background"].darken_amount(shade_amount)
+            _log_color(f"surface{i}", s)
+            surface_colors[f"surface{i}"] = s.hex_color
+    else:
+        # Dark theme: surfaces are lighter than background.
+        for i in range(6):
+            shade_amount = (i + 1) * (0.6 / 7)
+            s = colors["background"].lighten_amount(shade_amount)
+            _log_color(f"surface{i}", s)
+            surface_colors[f"surface{i}"] = s.hex_color
     
     colors_hex.update(surface_colors)
 
@@ -108,13 +117,18 @@ def colors_to_dict(colors: dict[int | str, Color], img):
     surface_values = [colors_hex[f"surface{i}"] for i in range(6)]
     palette_absolute(surface_values)
 
-    # Generate gradually darkened background shades down to pure black
+    # Subsurfaces
     subsurface_colors: dict[str, str] = {}
-    for i in range(3):
-        shade_amount = (i + 1) / 4  # 0.25, 0.50, 0.75
-        s = colors["background"].darken_amount(shade_amount)
-        _log_color(f"subsurface{i}", s)
-        subsurface_colors[f"subsurface{i}"] = s.hex_color
+    if light:
+        for i, shade_amount in enumerate((0.20, 0.32, 0.45)):
+            s = colors["background"].darken_amount(shade_amount)
+            _log_color(f"subsurface{i}", s)
+            subsurface_colors[f"subsurface{i}"] = s.hex_color
+    else:
+        for i, shade_amount in enumerate((0.15, 0.30, 0.45)):
+            s = colors["background"].darken_amount(shade_amount)
+            _log_color(f"subsurface{i}", s)
+            subsurface_colors[f"subsurface{i}"] = s.hex_color
 
     colors_hex.update(subsurface_colors)
 
@@ -246,31 +260,60 @@ def shade_16(colors: dict[int | str, Color], light: bool, shading: str):
     # colors["bright_black"] = colors[8]
     # colors["foreground"] = colors["bright_white"]
 
-def adjust_background(color: Color, light: bool, reference: Color | None = None) -> Color:
-    # If the background is close to neutral, borrow hue from a chromatic reference.
+def adjust_background(color: Color, light: bool, bg_strategy: str, reference: Color | None = None) -> Color:
+    """Derive background color from a seed.
+
+    If ARGS.bg_lightness / ARGS.bg_chroma are unset, compute targets from the
+    seed + strategy and persist the chosen values back into ARGS for saving.
+    """
     ref_h = reference.oklch.h_rad if reference is not None else color.oklch.h_rad
-    chroma_min = 0.03
+    user_L = getattr(ARGS, "bg_lightness", None)
+    user_C = getattr(ARGS, "bg_chroma", None)
+
+    def _clamp01(x: float) -> float:
+        if x < 0.0:
+            return 0.0
+        if x > 1.0:
+            return 1.0
+        return x
+
+    def _clamp(x: float, lo: float, hi: float) -> float:
+        if x < lo:
+            return lo
+        if x > hi:
+            return hi
+        return x
+
+    lch = color.oklch
 
     if light:
-        logging.debug("Lightening background color:")
-        color = color.lighten_amount(0.95)
+        if user_L is None:
+            target_L = _clamp(lch.L, 0.84, 0.94) if bg_strategy == "average" else _clamp(lch.L, 0.82, 0.92)
+        else:
+            target_L = _clamp01(float(user_L))
 
-        if color.oklch.C < chroma_min:
-            logging.debug("Background needs more chroma (OKLCH floor):")
-            color = color.with_oklch(C=chroma_min, h_rad=ref_h)
+        if user_C is None:
+            target_C = _clamp(lch.C, 0.02, 0.16) if bg_strategy == "average" else _clamp(lch.C, 0.02, 0.12)
+        else:
+            target_C = max(0.0, float(user_C))
 
     else:
-        hex_color = color.hex_color
-        if hex_color[1] != "0":  # legacy heuristic
-            logging.debug("Darkening background color:")
-            color = color.darken_amount(0.40)  # just a bit darker
+        if user_L is None:
+            max_L = 0.18 if bg_strategy == "average" else 0.20
+            target_L = _clamp(lch.L, 0.05, max_L)
+        else:
+            target_L = _clamp01(float(user_L))
 
-        if color.oklch.C < chroma_min:
-            logging.debug("Background needs more chroma (OKLCH floor):")
-            # Lift a touch to avoid crushing chroma at very low L.
-            color = color.lighten_amount(0.03)
-            color = color.with_oklch(C=chroma_min, h_rad=ref_h)
-    return color
+        if user_C is None:
+            target_C = _clamp(lch.C, 0.01, 0.10)
+        else:
+            target_C = max(0.0, float(user_C))
+
+    # Persist chosen values for colors.json settings.
+    ARGS.bg_lightness = target_L
+    ARGS.bg_chroma = target_C
+
+    return color.with_oklch(L=target_L, C=target_C, h_rad=ref_h)
 
 def apply_light_theme_tuning(candidates: list[Color], light: bool) -> list[Color]:
     """Apply light-theme tuning to a seed palette."""
@@ -445,15 +488,13 @@ def get_brightness(color: Color) -> float:
 def get_saturation(color: Color) -> float:
     return color.hsv[1]
 
-def choose_8(darkest: Color, brightest: Color, candidates: list[Color], ansi_mapping: dict[str, Color]) -> dict[int | str, Color]:
+def choose_8(bg: Color, fg: Color, candidates: list[Color], ansi_mapping: dict[str, Color]) -> dict[int | str, Color]:
     # first (darkest), last (brightest) and 6 middle colors
     # choose either the same colors as the ansi colors
     # or the 6 most saturated colors
     # or the 6 most bright colors
     # or 6 random colors
     # for now, return 6 random colors
-    bg = darkest
-    fg = brightest
     middle_colors = candidates[:]
 
     choose_method = ARGS.choose or "brightness"
@@ -495,7 +536,7 @@ def choose_8(darkest: Color, brightest: Color, candidates: list[Color], ansi_map
     colors_dict: dict[int | str, Color] = {
         "background": bg,
         "white": fg,
-    }   
+    }
     for i, color in enumerate(middle_colors[:8]):
         colors_dict[i] = color
     selected = [bg] + middle_colors[:8] + [fg]
@@ -514,6 +555,13 @@ def get(img, cache_dir=None):
     min_brightness = ARGS.brightness / 100 if ARGS.brightness else 0
     no_cache = ARGS.no_cache
     contrast = ARGS.contrast
+
+    # Ensure deterministic palette generation across repeated calls
+    # (e.g. the web UI), matching the CLI behavior.
+    if not getattr(ARGS, "seed", None):
+        ARGS.seed = random.randint(0, sys.maxsize)
+    random.seed(int(ARGS.seed))
+    logging.info("RNG seed: %s", ARGS.seed)
 
     # cache only image
     cache_file = cache_fname(img, backend, light, cache_dir)
@@ -549,15 +597,24 @@ def get(img, cache_dir=None):
     brightest_pool = [c for c in backend_colors if c != darkest_candidate]
     brightest_candidate = max(brightest_pool if brightest_pool else backend_colors, key=_yiq)
 
+    # Background/foreground seeds.
+    # - Dark themes: dark background + bright foreground.
+    # - Light themes: bright background + dark foreground.
     if bg_strategy == "average":
-        candidates = [c for c in backend_colors if c != brightest_candidate]
         background_seed = Color(util.image_average_color(img))
+        foreground_seed = darkest_candidate if light else brightest_candidate
+        candidates = [c for c in backend_colors if c != foreground_seed]
     else:
-        candidates = [c for c in backend_colors if c != darkest_candidate and c != brightest_candidate]
-        background_seed = darkest_candidate
+        if light:
+            background_seed = brightest_candidate
+            foreground_seed = darkest_candidate
+        else:
+            background_seed = darkest_candidate
+            foreground_seed = brightest_candidate
+        candidates = [c for c in backend_colors if c != background_seed and c != foreground_seed]
 
-    _log_color("seed bg candidate", background_seed)
-    _log_color("seed fg candidate", brightest_candidate)
+    _log_color("seed bg", background_seed)
+    _log_color("seed fg", foreground_seed)
     for i, c in enumerate(candidates[:6]):
         _log_color(f"seed cand[{i}]", c)
 
@@ -568,12 +625,9 @@ def get(img, cache_dir=None):
     for i, c in enumerate(candidates[:6]):
         _log_color(f"tuned cand[{i}]", c)
 
-    ref = (
-        max([*candidates, brightest_candidate], key=lambda c: c.oklch.C)
-        if candidates
-        else brightest_candidate
-    )
-    background = adjust_background(background_seed, light, reference=ref)
+    ref_pool = [*candidates, background_seed, foreground_seed]
+    ref = max(ref_pool, key=lambda c: c.oklch.C) if ref_pool else background_seed
+    background = adjust_background(background_seed, light, bg_strategy=bg_strategy, reference=ref)
     _log_color("adjusted background", background)
 
     if saturation_to_add:
@@ -593,8 +647,9 @@ def get(img, cache_dir=None):
         palette_absolute(candidates)
 
 
-    # Generate ANSI color mapping (now default behavior)
-    ansi_mapping = match.get_ansi_color_mapping(background, brightest_candidate, candidates)
+    # Generate ANSI color mapping (now default behavior).
+    # Terminal slots: make ANSI black/white track the theme rather than literal colors.
+    ansi_mapping = match.get_ansi_color_mapping(black=background, white=foreground_seed, candidates=candidates)
 
     # Contrast boost for mapped ANSI colors too (these are derived after candidate contrast).
     if contrast not in (None, "") and float(contrast) != 0:
@@ -609,11 +664,14 @@ def get(img, cache_dir=None):
     ansi_values = [ansi_mapping[key] for key in ansi_order]
     palette_absolute(ansi_values)
 
-    colors_dict = choose_8(background, brightest_candidate, candidates, ansi_mapping)
+    colors_dict = choose_8(background, foreground_seed, candidates, ansi_mapping)
     # colors_dict = colors_to_base_dict(colors)
     colors_dict.update(ansi_mapping)
 
-    colors_dict["white"] = adjust_to_fg_thresholds(colors_dict["white"], COLOR_7_MAX_SATURATION, COLOR_7_MIN_BRIGHTNESS)
+    # ANSI "white" tuning: for dark themes, keep it white-ish; for light themes, we'll
+    # override later with a dark foreground.
+    if not light:
+        colors_dict["white"] = adjust_to_fg_thresholds(colors_dict["white"], COLOR_7_MAX_SATURATION, COLOR_7_MIN_BRIGHTNESS)
 
     # 16 color shading
     shading = ARGS.shading
@@ -622,8 +680,31 @@ def get(img, cache_dir=None):
     logging.debug("After 16-color shading:")
     palette_absolute(colors_dict)
 
-    colors_dict["bright_white"] = adjust_to_fg_thresholds(colors_dict["bright_white"], FG_MAX_SATURATION, FG_MIN_BRIGHTNESS)
-    colors_dict["foreground"] = colors_dict["bright_white"]
+    if not light:
+        colors_dict["bright_white"] = adjust_to_fg_thresholds(colors_dict["bright_white"], FG_MAX_SATURATION, FG_MIN_BRIGHTNESS)
+
+    def _contrast_ratio(a: Color, b: Color) -> float:
+        L1 = max(a.w3_luminance, b.w3_luminance)
+        L2 = min(a.w3_luminance, b.w3_luminance)
+        return (L1 + 0.05) / (L2 + 0.05)
+
+    # Foreground: for dark themes, use a white-ish bright color.
+    # For light themes, pick a dark text color; using bright_white makes text unreadable.
+    if light:
+        pool = [c for c in [foreground_seed, *candidates] if c is not None]
+        pool = [c for c in pool if c.hex_color != background.hex_color] or pool
+        fg = min(pool, key=lambda c: c.w3_luminance) if pool else foreground_seed
+        for _ in range(12):
+            if _contrast_ratio(background, fg) >= 4.5:
+                break
+            fg = fg.darken_amount(0.06)
+
+        # In light schemes, terminal "white" and special.foreground should be the dark text.
+        colors_dict["white"] = fg
+        colors_dict["bright_white"] = fg.darken_amount(0.15)
+        colors_dict["foreground"] = fg
+    else:
+        colors_dict["foreground"] = colors_dict["bright_white"]
 
     logging.debug(f"ANSI bright colors:")
     # Print in same order as base ANSI colors: black, red, green, yellow, blue, magenta, cyan, white

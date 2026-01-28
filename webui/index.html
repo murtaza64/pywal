@@ -14,19 +14,101 @@
         <div class="group">
           <div class="label">Image</div>
           <div class="row">
+            <label for="file" class="btn btn--file">Browse…</label>
             <button id="use-wallpaper" class="btn">Use current wallpaper</button>
-            <button id="regen" class="btn btn--primary">Generate</button>
+            <input id="file" class="file" type="file" accept="image/*" />
+            <label class="switch" title="Light theme">
+              <input id="light" type="checkbox" />
+              <span class="switch__track"><span class="switch__thumb"></span></span>
+              <span class="switch__label">Light</span>
+            </label>
           </div>
-          <input id="file" class="file" type="file" accept="image/*" />
+
+          <div class="thumb">
+            <img id="thumb-img" class="thumb__img" alt="preview" />
+            <button id="thumb-prev" class="thumb__nav thumb__nav--prev" type="button" title="Previous">&lt;</button>
+            <button id="thumb-next" class="thumb__nav thumb__nav--next" type="button" title="Next">&gt;</button>
+            <div id="thumb-label" class="thumb__label"></div>
+          </div>
+
+          <div class="row">
+            <button id="regen" class="btn btn--primary">Generate</button>
+            <button id="shuffle-post" class="btn">shuffle</button>
+            <button id="shuffle-all" class="btn">SHUFFLE</button>
+          </div>
           <div id="image-path" class="muted"></div>
         </div>
 
         <div class="group">
-          <div class="label">Theme</div>
-          <div class="row">
-            <label class="check"><input id="light" type="checkbox" /> Light</label>
-            <label class="check"><input id="shuffle" type="checkbox" /> Shuffle</label>
-          </div>
+          <div class="label">Seeding</div>
+          <label class="field">
+            <span>bg_strategy</span>
+            <select id="bg_strategy">
+              <option value="backend" selected>backend</option>
+              <option value="average">average</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>generation_strategy</span>
+            <select id="generation_strategy">
+              <option value="subtractive" selected>subtractive</option>
+              <option value="iterative">iterative</option>
+            </select>
+          </label>
+          <label id="subtractive_initial-wrap" class="field">
+            <span>subtractive_initial</span>
+            <input id="subtractive_initial" type="range" min="8" max="32" step="1" value="16" />
+            <span id="subtractive_initial-val" class="mono"></span>
+          </label>
+          <label class="field">
+            <span>choose</span>
+            <select id="choose">
+              <option value="backend" selected>backend</option>
+              <option value="random">random</option>
+              <option value="ansi">ansi</option>
+              <option value="brightness">brightness</option>
+              <option value="saturation">saturation</option>
+              <option value="ansi-brightness">ansi-brightness</option>
+              <option value="ansi-saturation">ansi-saturation</option>
+              <option value="ansi-shuffle">ansi-shuffle</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>seed</span>
+            <div id="seed-wrap" class="seedrow">
+              <input id="seed" class="seedinput" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="(empty = random)" />
+              <button id="seed-randomize" class="btn" type="button" title="Randomize seed">randomize</button>
+            </div>
+          </label>
+
+          <div class="label" style="margin-top: 10px">Ops</div>
+          <label class="field">
+            <span>contrast</span>
+            <input id="contrast" type="range" min="0" max="8" step="0.1" value="2" />
+            <span id="contrast-val" class="mono"></span>
+          </label>
+
+          <div class="label" style="margin-top: 10px">Background</div>
+          <label class="field">
+            <span>bg_lightness</span>
+            <input id="bg_lightness" type="range" min="0.05" max="0.95" step="0.01" value="0.88" />
+            <span id="bg_lightness-val" class="mono"></span>
+          </label>
+          <label class="field">
+            <span>bg_chroma</span>
+            <input id="bg_chroma" type="range" min="0" max="0.16" step="0.005" value="0.04" />
+            <span id="bg_chroma-val" class="mono"></span>
+          </label>
+          <label class="field">
+            <span>brightness (%)</span>
+            <input id="brightness" type="range" min="-100" max="100" step="1" value="0" />
+            <span id="brightness-val" class="mono"></span>
+          </label>
+          <label class="field">
+            <span>saturate (delta %)</span>
+            <input id="saturate" type="range" min="-100" max="100" step="1" value="0" />
+            <span id="saturate-val" class="mono"></span>
+          </label>
           <label class="field">
             <span>shading</span>
             <select id="shading">
@@ -36,89 +118,18 @@
           </label>
         </div>
 
-        <div class="group">
-          <div class="label">Seeding</div>
-          <label class="field">
-            <span>generation_strategy</span>
-            <select id="generation_strategy">
-              <option value="subtractive" selected>subtractive</option>
-              <option value="iterative">iterative</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>subtractive_initial</span>
-            <input id="subtractive_initial" type="number" min="8" max="32" step="1" value="16" />
-          </label>
-          <label class="field">
-            <span>seed</span>
-            <input id="seed" type="number" min="0" step="1" placeholder="(empty = random)" />
-          </label>
-        </div>
-
-        <div class="group">
-          <div class="label">Ops</div>
-          <label class="field">
-            <span>contrast</span>
-            <input id="contrast" type="range" min="0" max="21" step="0.5" value="2" />
-            <span id="contrast-val" class="mono"></span>
-          </label>
-          <label class="field">
-            <span>brightness (%)</span>
-            <input id="brightness" type="range" min="0" max="100" step="1" value="0" />
-            <span id="brightness-val" class="mono"></span>
-          </label>
-          <label class="field">
-            <span>saturate (delta %)</span>
-            <input id="saturate" type="range" min="-100" max="100" step="1" value="0" />
-            <span id="saturate-val" class="mono"></span>
-          </label>
-          <label class="field">
-            <span>bg_chroma_floor</span>
-            <input id="bg_chroma_floor" type="range" min="0" max="0.10" step="0.005" value="0.03" />
-            <span id="bg_chroma_floor-val" class="mono"></span>
-          </label>
-          <label class="field">
-            <span>greyish_chroma_threshold</span>
-            <input id="greyish_chroma_threshold" type="range" min="0" max="0.10" step="0.005" value="0.04" />
-            <span id="greyish_chroma_threshold-val" class="mono"></span>
-          </label>
-        </div>
-
-        <div class="group">
-          <div class="label">Choose</div>
-          <label class="field">
-            <span>choose</span>
-            <select id="choose">
-              <option value="backend" selected>backend</option>
-              <option value="brightness">brightness</option>
-              <option value="saturation">saturation</option>
-              <option value="random">random</option>
-            </select>
-          </label>
-        </div>
+        
       </aside>
 
       <main class="main">
         <div class="overview">
-          <div class="overview__top">
-            <div class="preview">
-              <img id="preview-img" class="preview__img" alt="preview" />
-              <div id="preview-label" class="preview__label"></div>
-            </div>
-          </div>
-
           <div class="overview__row">
             <div class="block block--wide">
-              <div class="block__title">Main Colors</div>
               <div id="main8" class="strip8"></div>
             </div>
           </div>
 
           <div class="overview__row">
-            <div class="block">
-              <div class="block__title">Surfaces</div>
-              <div id="surfaces" class="surfacescol"></div>
-            </div>
             <div class="block">
               <div class="block__title">Colors</div>
               <div class="colors2col">
@@ -127,14 +138,44 @@
                 <div id="colors-bottom" class="colorbottom"></div>
               </div>
             </div>
+            <div class="block">
+              <div class="block__title">Surfaces</div>
+              <div id="surfaces" class="surfacescol"></div>
+            </div>
           </div>
 
           <div class="overview__row">
             <div class="block block--wide">
               <div id="sample" class="sample">
-                <div class="sample__title">Sample</div>
-                <div class="sample__text">bg/fg</div>
-                <div class="sample__text">The quick brown fox jumps over the lazy dog.</div>
+                <pre class="code"><code>
+<span class="tok-comment">/* linux/mm: simplified example */</span>
+<span class="tok-c4">#include</span> <span class="tok-c6">&lt;linux/mm.h&gt;</span>
+<span class="tok-c4">#include</span> <span class="tok-c6">&lt;linux/errno.h&gt;</span>
+
+<span class="tok-c4">#define</span> <span class="tok-c7">MAX_BATCH</span> <span class="tok-c5">32</span>
+
+<span class="tok-c4">static</span> <span class="tok-c2">int</span> <span class="tok-c3">reclaim_page</span>(<span class="tok-c2">struct</span> <span class="tok-c2">page</span> <span class="tok-c0">*</span><span class="tok-c7">page</span>)
+{
+    <span class="tok-c4">if</span> (<span class="tok-c3">PageDirty</span>(<span class="tok-c7">page</span>))
+        <span class="tok-c4">return</span> <span class="tok-c0">-</span><span class="tok-c1">EBUSY</span><span class="tok-c0">;</span>
+
+    <span class="tok-c3">clear_page_dirty_for_io</span>(<span class="tok-c7">page</span>)<span class="tok-c0">;</span>
+    <span class="tok-c4">return</span> <span class="tok-c5">0</span><span class="tok-c0">;</span>
+}
+
+<span class="tok-c4">static</span> <span class="tok-c2">void</span> <span class="tok-c3">reclaim_batch</span>(<span class="tok-c2">struct</span> <span class="tok-c2">page</span> <span class="tok-c0">*</span><span class="tok-c7">pages</span><span class="tok-c0">[</span><span class="tok-c7">MAX_BATCH</span><span class="tok-c0">]</span>)
+{
+    <span class="tok-c2">int</span> <span class="tok-c7">i</span><span class="tok-c0">;</span>
+
+    <span class="tok-c4">for</span> (<span class="tok-c7">i</span> <span class="tok-c0">=</span> <span class="tok-c5">0</span><span class="tok-c0">;</span> <span class="tok-c7">i</span> <span class="tok-c0">&lt;</span> <span class="tok-c7">MAX_BATCH</span><span class="tok-c0">;</span> <span class="tok-c7">i</span><span class="tok-c0">++</span>) {
+        <span class="tok-c4">if</span> (<span class="tok-c0">!</span><span class="tok-c7">pages</span><span class="tok-c0">[</span><span class="tok-c7">i</span><span class="tok-c0">]</span>)
+            <span class="tok-c4">break</span><span class="tok-c0">;</span>
+
+        <span class="tok-c4">if</span> (<span class="tok-c3">reclaim_page</span>(<span class="tok-c7">pages</span><span class="tok-c0">[</span><span class="tok-c7">i</span><span class="tok-c0">]</span>) <span class="tok-c0">==</span> <span class="tok-c0">-</span><span class="tok-c1">EBUSY</span>)
+            <span class="tok-c3">pr_debug</span>(<span class="tok-c6">"mm: page %d busy\n"</span><span class="tok-c0">,</span> <span class="tok-c7">i</span>)<span class="tok-c0">;</span>
+    }
+}
+                </code></pre>
               </div>
             </div>
           </div>
