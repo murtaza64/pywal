@@ -8,6 +8,7 @@ import re
 import shutil
 
 from . import util
+from .color import Color
 from .settings import CONF_DIR, MODULE_DIR
 from .util import get_cache_dir, get_cache_file
 
@@ -88,6 +89,23 @@ def template(colors, input_file, output_file=None):
 def flatten_colors(colors):
     """Prepare colors to be exported.
     Flatten dicts and convert colors to util.Color()"""
+
+    # Backfill derived background ramps for older cache files.
+    # Templates in this repo expect these keys.
+    base_bg = colors.get("special", {}).get("background")
+    if isinstance(base_bg, str):
+        cdict = colors.setdefault("colors", {})
+        if "surface0" not in cdict:
+            bg = Color.from_hex(base_bg)
+            for i in range(6):
+                shade_amount = (i + 1) * (0.75 / 7)
+                cdict[f"surface{i}"] = bg.lighten_amount(shade_amount).hex_color
+        if "subsurface0" not in cdict:
+            bg = Color.from_hex(base_bg)
+            for i in range(3):
+                shade_amount = (i + 1) / 4
+                cdict[f"subsurface{i}"] = bg.darken_amount(shade_amount).hex_color
+
     all_colors = {
         "wallpaper": colors["wallpaper"],
         "checksum": colors["checksum"],
@@ -169,8 +187,8 @@ def every(colors):
     join = os.path.join  # Minor optimization.
     generate_color_images(colors, output_dir)
     colors = flatten_colors(colors)
-    template_dir = join(MODULE_DIR, "templates")
-    template_dir_user = join(CONF_DIR, "templates")
+    template_dir = join(str(MODULE_DIR), "templates")
+    template_dir_user = join(str(CONF_DIR), "templates")
     util.create_dir(template_dir_user)
 
     logging.info("Reading system templates from: %s", template_dir)
@@ -186,14 +204,14 @@ def color(colors, export_type, output_file=None):
     """Export a single template file."""
     all_colors = flatten_colors(colors)
 
-    template_name = get_export_type(export_type)
+    template_name = get_export_type(export_type) or export_type
 
     if template_name == export_type:
-        template_file = os.path.join(CONF_DIR, "templates", template_name)
+        template_file = os.path.join(str(CONF_DIR), "templates", str(template_name))
     else:
-        template_file = os.path.join(MODULE_DIR, "templates", template_name)
+        template_file = os.path.join(str(MODULE_DIR), "templates", str(template_name))
 
-    output_file = output_file or get_cache_file(template_name)
+    output_file = output_file or get_cache_file(str(template_name))
 
     if os.path.isfile(template_file):
         template(all_colors, template_file, output_file)

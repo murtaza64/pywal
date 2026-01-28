@@ -1,5 +1,5 @@
 include pywal/templates/*
-include pywal/backends/*
+include pywal/colorthief.py
 include pywal/scripts/*
 include pywal/colorschemes/*
 include pywal/colorschemes/light/*

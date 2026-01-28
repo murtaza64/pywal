@@ -11,7 +11,7 @@ from .settings import CONF_DIR, MODULE_DIR
 from .args import ARGS
 from .util import get_cache_dir, get_cache_file
 from . import util
-from . import colors
+from . import palette
 
 # Add cache directory to Python path so we can import colors directly
 cache_dir = get_cache_dir()
@@ -186,7 +186,7 @@ def file(input_file, light=False):
         if shading:
             if r_theme["colors"]["color1"] == r_theme["colors"]["color9"]:
                 logging.info("requested theme uses 9 shades, converting to 16")
-                colors.shade_16(r_theme["colors"], light, shading)
+                palette.shade_16(r_theme["colors"], light, shading)
         return r_theme
 
     logging.error("No %s colorscheme file found.", bri)

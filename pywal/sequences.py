@@ -10,7 +10,7 @@ import subprocess
 from .settings import OS
 from .util import get_cache_dir, get_cache_file
 from . import util
-
+from .color import hex_to_rgb
 
 def set_special(index, color, iterm_name="h", alpha=100):
     """Convert a hex color to a special sequence."""
@@ -37,7 +37,7 @@ def set_iterm_tab_color(color):
         "\033]6;1;bg;red;brightness;%s\a"
         "\033]6;1;bg;green;brightness;%s\a"
         "\033]6;1;bg;blue;brightness;%s\a"
-    ) % (*util.hex_to_rgb(color),)
+    ) % (*hex_to_rgb(color),)
 
 
 def create_sequences(colors, vte_fix=False):

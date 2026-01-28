@@ -17,13 +17,14 @@ import sys
 from .settings import __version__, CONF_DIR
 from .args import ARGS, parse_args, process_args_exit
 from .util import get_cache_dir, get_cache_file
-from . import colors
+from . import palette as palette_mod
 from . import export
 from . import image
 from . import reload
 from . import sequences
 from . import theme
 from . import util
+from .color import alpha_integrify, Color
 from . import wallpaper
 from .print import palette, print_palette_settings, display_palette_and_settings, print_wallpaper_name
 
@@ -57,15 +58,15 @@ def run():
         sys.stdout = sys.stderr = open(os.devnull, "w")
 
     if ARGS.alpha:
-        util.alpha_integrify(ARGS.alpha)
-        util.Color.passed_alpha_num = ARGS.alpha
-        util.Color.alpha_num = ARGS.alpha or util.Color.alpha_num
+        alpha_integrify(ARGS.alpha)
+        Color.passed_alpha_num = ARGS.alpha
+        Color.alpha_num = ARGS.alpha or Color.alpha_num
 
     if ARGS.image and not ARGS.theme:
         image_file = image.get(
             ARGS.image, iterative=ARGS.iterative, recursive=ARGS.recursive
         )
-        colors_plain = colors.get(image_file)
+        colors_plain = palette_mod.get(image_file)
 
     if ARGS.theme:
         colors_plain = theme.file(ARGS.theme, ARGS.light)
@@ -77,7 +78,7 @@ def run():
 
     if ARGS.wallpaper:
         cached_wallpaper = util.read_file(get_cache_file("wal"))
-        colors_plain = colors.get(cached_wallpaper[0])
+        colors_plain = palette_mod.get(cached_wallpaper[0])
 
     if not colors_plain:
         logging.error("No colors generated")

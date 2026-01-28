@@ -20,8 +20,8 @@ ARGS = argparse.Namespace()
 
 OPTIONS_TO_SAVE = [
     "alpha",
-    "backend",
     "bg",
+    "bg_strategy",
     "brightness",
     "choose",
     "contrast",
@@ -94,19 +94,7 @@ def get_parser():
     
     # === COLOR GENERATION ===
     color_group = parser.add_argument_group('Color Generation')
-    color_group.add_argument(
-        "--backend",
-        metavar="backend",
-        help="Which color backend to use. \
-                           Use 'wal --list-backends' to list backends.",
-        type=str,
-        default="colorthief",
-    )
-    color_group.add_argument(
-        "--list-backends",
-        action="store_true",
-        help="List available color backends.",
-    )
+    # Backend selection removed: this project uses colorthief exclusively.
     color_group.add_argument(
         "--light", "-l", action="store_true", help="Generate a light colorscheme."
     )
@@ -121,11 +109,22 @@ def get_parser():
         metavar="(1.0 .. 21.0)",
         required=False,
         type=float,
+        default=2.0,
         help="Specify a minimum contrast ratio between palette "
         "colors and the source image according to W3 "
         "contrast specifications. Values between 1.5-4.5 "
-        "typically work best.",
+        "typically work best. Default: 2.0 (use 0 to disable).",
     )
+
+    color_group.add_argument(
+        "--bg-strategy",
+        metavar="strategy",
+        required=False,
+        default="backend",
+        choices=["backend", "average"],
+        help="How to pick the background color. 'backend' uses the darkest candidate; 'average' uses the image average.",
+    )
+
     color_group.add_argument(
         "--shading",
         default="lighten",
@@ -310,6 +309,20 @@ def get_parser():
 
 parser = get_parser()
 
+
+def ensure_args_defaults() -> None:
+    """Populate the global ARGS namespace with parser defaults.
+
+    Some modules import and read ARGS fields before `parse_args()` runs.
+    """
+    defaults = parser.parse_args([])
+    for k, v in vars(defaults).items():
+        if not hasattr(ARGS, k):
+            setattr(ARGS, k, v)
+
+
+ensure_args_defaults()
+
 def process_args_exit():
     """Process args that exit."""
     if ARGS.print_term_colors:
@@ -337,7 +350,7 @@ def process_args_exit():
 
     if ARGS.reload:
         from . import reload
-        reload.colors()
+        reload.env()
         sys.exit(0)
 
     if ARGS.clear_cache:
@@ -352,14 +365,7 @@ def process_args_exit():
         theme.list_out()
         sys.exit(0)
 
-    if ARGS.list_backends:
-        from . import colors
-        print(
-            "\n - ".join(
-                ["\033[1;32mBackends\033[0m:", *colors.list_backends()]
-            )
-        )
-        sys.exit(0)
+    # --list-backends removed (colorthief only)
 
 def get_cli_provided_args():
     """Get a set of argument names that were explicitly provided on the command line."""
@@ -506,8 +512,7 @@ def parse_args():
         and not ARGS.restore
         and not ARGS.wallpaper
         and not ARGS.modify
-        and not ARGS.backend
     ):
         parser.error(
-            "No input specified.\n" "--backend, --theme, -i, -R, or --modify are required."
+            "No input specified.\n" "--theme, -i, -R, or --modify are required."
         )

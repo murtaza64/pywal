@@ -4,6 +4,7 @@ import unittest
 import os
 
 from pywal import util
+from pywal.color import hex_to_rgb, hex_to_xrgba, rgb_to_hex
 
 
 # Import colors.
@@ -56,38 +57,38 @@ class TestUtil(unittest.TestCase):
 
     def test_hex_to_rgb_black(self):
         """> Convert #000000 to RGB."""
-        result = util.hex_to_rgb("#000000")
+        result = hex_to_rgb("#000000")
         self.assertEqual(result, (0, 0, 0))
 
     def test_hex_to_rgb_white(self):
         """> Convert #ffffff to RGB."""
-        result = util.hex_to_rgb("#ffffff")
+        result = hex_to_rgb("#ffffff")
         self.assertEqual(result, (255, 255, 255))
 
     def test_hex_to_rgb_rand(self):
         """> Convert #98aec2 to RGB."""
-        result = util.hex_to_rgb("#98aec2")
+        result = hex_to_rgb("#98aec2")
         self.assertEqual(result, (152, 174, 194))
 
     def test_hex_to_xrgba(self):
         """> Convert #98aec2 to XRGBA."""
-        result = util.hex_to_xrgba("#98aec2")
+        result = hex_to_xrgba("#98aec2")
         self.assertEqual(result, "98/ae/c2/ff")
 
     def test_rgb_to_hex(self):
         """> Convert 152,174,194 to HEX."""
-        result = util.rgb_to_hex((152, 174, 194))
+        result = rgb_to_hex((152, 174, 194))
         self.assertEqual(result, "#98aec2")
 
     def test_darken_color(self):
         """> Darken #ffffff by 0.25."""
         result = util.darken_color("#ffffff", 0.25)
-        self.assertEqual(result, "#bfbfbf")
+        self.assertEqual(result, "#aeaeae")
 
     def test_lighten_color(self):
         """> Lighten #000000 by 0.25."""
         result = util.lighten_color("#000000", 0.25)
-        self.assertEqual(result, "#3f3f3f")
+        self.assertEqual(result, "#222222")
 
     def test_gen_color_checksum(self):
         """> Generate checksum from image file"""

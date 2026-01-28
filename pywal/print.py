@@ -5,7 +5,7 @@ Print functions for displaying color palettes and colors.
 import logging
 import re
 
-from . import util
+from .color import Color, hex_to_rgb
 
 
 def get_display_width(text):
@@ -20,7 +20,7 @@ def make_color_code(hex_color, bold=False):
     """Generate ANSI color code from hex color."""
     if not hex_color:
         return ""
-    r, g, b = util.hex_to_rgb(hex_color)
+    r, g, b = hex_to_rgb(hex_color)
     code = f"\033[38;2;{r};{g};{b}m"
     if bold:
         code += "\033[1m"
@@ -45,7 +45,7 @@ def print_wallpaper_name(wallpaper_path, color_dict=None):
 
 def print_color(color, label=""):
     """Print a color with its visual representation in the terminal."""
-    r, g, b = util.hex_to_rgb(color)
+    r, g, b = hex_to_rgb(color)
     if label:
         print(f"{label}: \033[48;2;{r};{g};{b}m  \033[0m {color}")
     else:
@@ -83,7 +83,7 @@ def get_palette_lines(color_dict: dict):
         for col in range(8):
             i = row * 8 + col
             color = colors[f"color{i}"]
-            r, g, b = util.hex_to_rgb(color)
+            r, g, b = hex_to_rgb(color)
             line += "\033[48;2;%d;%d;%dm    \033[0m" % (r, g, b)
         lines.append(line)
     
@@ -94,7 +94,7 @@ def get_palette_lines(color_dict: dict):
     for key in [f"surface{i}" for i in range(6)]:
         if key in colors:
             color = colors[key]
-            r, g, b = util.hex_to_rgb(color)
+            r, g, b = hex_to_rgb(color)
             surface_line += "\033[48;2;%d;%d;%dm    \033[0m" % (r, g, b)
     lines.append(surface_line)
 
@@ -103,7 +103,7 @@ def get_palette_lines(color_dict: dict):
     for key in [f"subsurface{i}" for i in range(3)]:
         if key in colors:
             color = colors[key]
-            r, g, b = util.hex_to_rgb(color)
+            r, g, b = hex_to_rgb(color)
             subsurface_line += "\033[48;2;%d;%d;%dm    \033[0m" % (r, g, b)
     if subsurface_line:
         lines.append(subsurface_line)
@@ -117,12 +117,12 @@ def get_palette_lines(color_dict: dict):
     for i in range(8):
         # Normal color
         color = colors[ansi_names[i]]
-        r, g, b = util.hex_to_rgb(color)
+        r, g, b = hex_to_rgb(color)
         line = "\033[48;2;%d;%d;%dm    \033[0m \033[38;2;%d;%d;%dm%-8s\033[0m  " % (r, g, b, r, g, b, ansi_names[i])
         
         # Bright color
         bright_color = colors[bright_names[i]]
-        br, bg, bb = util.hex_to_rgb(bright_color)
+        br, bg, bb = hex_to_rgb(bright_color)
         line += "\033[48;2;%d;%d;%dm    \033[0m \033[38;2;%d;%d;%dm%s\033[0m" % (br, bg, bb, br, bg, bb, bright_names[i])
         lines.append(line)
     
@@ -168,12 +168,16 @@ def palette_absolute(colors, level=logging.DEBUG):
         colors = list(colors.values())
     row = ""
     for i, color in enumerate(colors):
+        if isinstance(color, Color):
+            color = color.hex_color
+        elif hasattr(color, "hex_color"):
+            color = getattr(color, "hex_color")
         if i % 8 == 0 and i > 0:
             logging.log(level, row)
             row = ""
 
         # Convert hex to RGB
-        r, g, b = util.hex_to_rgb(color)
+        r, g, b = hex_to_rgb(color)
         
         # Use RGB escape codes for true color display
         row += "\033[48;2;%d;%d;%dm%s\033[0m" % (r, g, b, " " * 4)

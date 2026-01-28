@@ -2,7 +2,6 @@
 Misc helper functions.
 """
 
-import colorsys
 import json
 import logging
 import os
@@ -14,9 +13,22 @@ import sys
 import hashlib
 import copy
 
-from pywal.types import RGB, HexColor
 from .settings import XDG_CACHE_DIR
-from .color import Color
+from .color import (
+    Color,
+    add_saturation,
+    alpha_integrify,
+    blend_color,
+    brighten_color,
+    darken_color,
+    hex_to_rgb,
+    hex_to_xrgba,
+    lighten_color,
+    print_color_change,
+    rgb_to_hex,
+    rgb_to_yiq,
+    saturate_color,
+)
 
 # Custom log level (below DEBUG which is 10)
 VERBOSE = 5
@@ -35,12 +47,6 @@ def get_cache_dir():
 def get_cache_file(*path: str) -> str:
     """Get a filename from the cache directory."""
     return os.path.join(get_cache_dir(), *path)
-
-def print_color_change(old_color, new_color, operation, level=VERBOSE):
-    """Log a color change with visual representation."""
-    r1, g1, b1 = hex_to_rgb(old_color)
-    r2, g2, b2 = hex_to_rgb(new_color)
-    logging.log(level, f"    {operation}: \033[48;2;{r1};{g1};{b1}m  \033[0m {old_color} -> \033[48;2;{r2};{g2};{b2}m  \033[0m {new_color}")
 
 has_fcntl = False
 fcntl_warning = ""
@@ -149,128 +155,6 @@ def setup_logging(level=logging.INFO):
     logging.addLevelName(logging.WARNING, "\033[1;33mW")
     logging.addLevelName(logging.DEBUG, "\033[1;34mD")
     logging.addLevelName(VERBOSE, "\033[1;35mV")  # Magenta for verbose
-
-
-def hex_to_rgb(color: HexColor) -> RGB:
-    """Convert a hex color to rgb."""
-    return tuple(bytes.fromhex(color.strip("#")))  # type: ignore
-
-
-def hex_to_xrgba(color):
-    """Convert a hex color to xrdb rgba."""
-    col = color.lower().strip("#")
-    return "%s%s/%s%s/%s%s/ff" % (*col,)
-
-
-def rgb_to_hex(color: RGB) -> HexColor:
-    """Convert an rgb color (0-255) to hex."""
-    return "#%02x%02x%02x" % (*color,)
-
-
-def darken_color(color, amount, debug=False):
-    """Darken a hex color."""
-    old_color = color
-    new_color_rgb = [int(col * (1 - amount)) for col in hex_to_rgb(color)]
-    new_color = rgb_to_hex(new_color_rgb)
-    print_color_change(old_color, new_color, f"darken({amount})")
-    return new_color
-
-
-def lighten_color(color, amount, debug=False):
-    """Lighten a hex color."""
-    old_color = color
-    new_color_rgb = [int(col + (255 - col) * amount) for col in hex_to_rgb(color)]
-    new_color = rgb_to_hex(new_color_rgb)
-    print_color_change(old_color, new_color, f"lighten({amount})")
-    return new_color
-
-
-def alpha_integrify(alpha_value):
-    """
-    ensure the alpha string is an int between 0 and 100
-
-    return: int string between 0 an 100
-    """
-    # could be a string containing a float like 0.7
-    a = float(alpha_value)
-    if a < 0:
-        a = abs(a)
-    if a < 1:
-        a = a * 100
-    if a > 100:
-        a = 100
-    a = int(a)
-    a = str(a)
-    return a
-
-
-def blend_color(color, color2):
-    """Blend two colors together."""
-    r1, g1, b1 = hex_to_rgb(color)
-    r2, g2, b2 = hex_to_rgb(color2)
-
-    r3 = int(0.5 * r1 + 0.5 * r2)
-    g3 = int(0.5 * g1 + 0.5 * g2)
-    b3 = int(0.5 * b1 + 0.5 * b2)
-
-    return rgb_to_hex((r3, g3, b3))
-
-
-def saturate_color(color, amount, debug=False):
-    """Change saturation of a hex color to passed value.
-
-    new_saturation = amount"""
-    old_color = color
-    r, g, b = hex_to_rgb(color)
-    r, g, b = [x / 255.0 for x in (r, g, b)]
-    h, l, s = colorsys.rgb_to_hls(r, g, b)
-    s = amount
-    r, g, b = colorsys.hls_to_rgb(h, l, s)
-    r, g, b = [x * 255.0 for x in (r, g, b)]
-
-    new_color = rgb_to_hex((int(r), int(g), int(b)))
-    print_color_change(old_color, new_color, f"saturate({amount})")
-    return new_color
-
-def brighten_color(color, min_brightness, debug=False):
-    """Brighten a hex color."""
-    old_color = color
-    r, g, b = hex_to_rgb(color)
-    r, g, b = [x / 255.0 for x in (r, g, b)]
-    h, l, s = colorsys.rgb_to_hls(r, g, b)
-    l = max(min_brightness, l)
-    r, g, b = colorsys.hls_to_rgb(h, l, s)
-    r, g, b = [x * 255.0 for x in (r, g, b)]
-
-    new_color = rgb_to_hex((int(r), int(g), int(b)))
-    print_color_change(old_color, new_color, f"brighten({min_brightness})")
-    return new_color
-
-
-def add_saturation(color, amount, debug=False):
-    """Add saturation to a hex color.
-
-    new_saturation = color_saturation + amount"""
-    old_color = color
-    r, g, b = hex_to_rgb(color)
-    r, g, b = [x / 255.0 for x in (r, g, b)]
-    h, l, s = colorsys.rgb_to_hls(r, g, b)
-    s = s + amount
-    if s > 1.0:
-        s = 1
-    if s < -1.0:
-        s = -1
-    r, g, b = colorsys.hls_to_rgb(h, l, s)
-    r, g, b = [x * 255.0 for x in (r, g, b)]
-
-    new_color = rgb_to_hex((int(r), int(g), int(b)))
-    print_color_change(old_color, new_color, f"add_saturation({amount})")
-    return new_color
-
-
-def rgb_to_yiq(color):
-    """Sort a list of colors."""
-    return colorsys.rgb_to_yiq(*hex_to_rgb(color))
 
 
 def disown(cmd):

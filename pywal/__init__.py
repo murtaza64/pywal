@@ -10,7 +10,7 @@ Created by Dylan Araps.
 """
 
 from .settings import __version__, __cache_version__
-from . import colors
+from . import palette
 from . import export
 from . import image
 from . import reload
@@ -21,7 +21,7 @@ from . import wallpaper
 __all__ = [
     "__version__",
     "__cache_version__",
-    "colors",
+    "palette",
     "export",
     "image",
     "reload",
