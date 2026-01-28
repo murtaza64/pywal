@@ -25,6 +25,19 @@ color13='{color13}'
 color14='{color14}'
 color15='{color15}'
 
+# Surfaces
+surface0='{surface0}'
+surface1='{surface1}'
+surface2='{surface2}'
+surface3='{surface3}'
+surface4='{surface4}'
+surface5='{surface5}'
+
+# Subsurfaces
+subsurface0='{subsurface0}'
+subsurface1='{subsurface1}'
+subsurface2='{subsurface2}'
+
 # FZF colors
 export FZF_DEFAULT_OPTS="
     $FZF_DEFAULT_OPTS
@@ -33,4 +46,4 @@ export FZF_DEFAULT_OPTS="
 "
 
 # Fix LS_COLORS being unreadable.
-export LS_COLORS="${{LS_COLORS}}:su=30;41:ow=30;42:st=30;44:"
+export LS_COLORS="$LS_COLORS:su=30;41:ow=30;42:st=30;44:"

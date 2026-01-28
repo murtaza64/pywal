@@ -8,6 +8,19 @@
     --foreground: {foreground};
     --cursor: {cursor};
 
+    /* Surfaces */
+    --surface0: {surface0};
+    --surface1: {surface1};
+    --surface2: {surface2};
+    --surface3: {surface3};
+    --surface4: {surface4};
+    --surface5: {surface5};
+
+    /* Subsurfaces */
+    --subsurface0: {subsurface0};
+    --subsurface1: {subsurface1};
+    --subsurface2: {subsurface2};
+
     /* Colors */
     --color0: {color0};
     --color1: {color1};

@@ -97,6 +97,16 @@ def get_palette_lines(color_dict: dict):
             r, g, b = util.hex_to_rgb(color)
             surface_line += "\033[48;2;%d;%d;%dm    \033[0m" % (r, g, b)
     lines.append(surface_line)
+
+    # Add subsurface colors
+    subsurface_line = ""
+    for key in [f"subsurface{i}" for i in range(3)]:
+        if key in colors:
+            color = colors[key]
+            r, g, b = util.hex_to_rgb(color)
+            subsurface_line += "\033[48;2;%d;%d;%dm    \033[0m" % (r, g, b)
+    if subsurface_line:
+        lines.append(subsurface_line)
     lines.append("")  # Empty line
     
     # Add ANSI colors in two columns with titles

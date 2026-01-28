@@ -79,6 +79,18 @@ def colors_to_dict(colors: dict, img):
     logging.debug("Surface colors:")
     surface_values = [colors[f"surface{i}"] for i in range(6)]
     palette_absolute(surface_values)
+
+    # Generate gradually darkened background shades down to pure black
+    subsurface_colors = {}
+    for i in range(3):
+        shade_amount = (i + 1) / 4  # 0.25, 0.50, 0.75
+        subsurface_colors[f"subsurface{i}"] = util.darken_color(colors["background"], shade_amount)
+
+    colors.update(subsurface_colors)
+
+    logging.debug("Subsurface colors:")
+    subsurface_values = [colors[f"subsurface{i}"] for i in range(3)]
+    palette_absolute(subsurface_values)
     
     
     # Generate bright variants of ANSI colors
@@ -204,7 +216,7 @@ def shade_16(colors, light, shading):
     # colors["white"] = colors[7]
     # colors["bright_white"] = colors[15]
     # colors["bright_black"] = colors[8]
-    colors["foreground"] = colors["bright_white"]
+    # colors["foreground"] = colors["bright_white"]
 
 def adjust_background(color, light):
     if light:
@@ -559,7 +571,7 @@ def get(img, cache_dir=None):
     # colors_dict = colors_to_base_dict(colors)
     colors_dict.update(ansi_mapping)
 
-    colors_dict["white"] = adjust_to_fg_thresholds(colors_dict[7], COLOR_7_MAX_SATURATION, COLOR_7_MIN_BRIGHTNESS)
+    colors_dict["white"] = adjust_to_fg_thresholds(colors_dict["white"], COLOR_7_MAX_SATURATION, COLOR_7_MIN_BRIGHTNESS)
 
     # 16 color shading
     shading = ARGS.shading
@@ -568,7 +580,8 @@ def get(img, cache_dir=None):
     logging.debug("After 16-color shading:")
     palette_absolute(colors_dict)
 
-    colors_dict["foreground"] = adjust_to_fg_thresholds(colors_dict[15], FG_MAX_SATURATION, FG_MIN_BRIGHTNESS)
+    colors_dict["bright_white"] = adjust_to_fg_thresholds(colors_dict["bright_white"], FG_MAX_SATURATION, FG_MIN_BRIGHTNESS)
+    colors_dict["foreground"] = colors_dict["bright_white"]
 
     logging.debug(f"ANSI bright colors:")
     # Print in same order as base ANSI colors: black, red, green, yellow, blue, magenta, cyan, white

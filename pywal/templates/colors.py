@@ -52,6 +52,11 @@ class Colors:
     surface4 = "{surface4}"
     surface5 = "{surface5}"
 
+    # Subsurface colors (darker than background)
+    subsurface0 = "{subsurface0}"
+    subsurface1 = "{subsurface1}"
+    subsurface2 = "{subsurface2}"
+
     # Metadata
     checksum = "{checksum}"
     wallpaper = "{wallpaper}"
