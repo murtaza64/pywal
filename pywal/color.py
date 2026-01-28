@@ -9,7 +9,10 @@ from __future__ import annotations
 import copy
 import re
 from dataclasses import dataclass
+from functools import cached_property
 from typing import ClassVar, Optional
+
+import colorsys
 
 
 def _util():
@@ -32,15 +35,37 @@ class Color:
     def __str__(self) -> str:
         return self.hex_color
 
+    @classmethod
+    def from_hex(cls, hex_color: str) -> "Color":
+        return cls(hex_color)
+
+    @cached_property
+    def rgb8(self) -> tuple[int, int, int]:
+        r, g, b = _util().hex_to_rgb(self.hex_color)
+        return (int(r), int(g), int(b))
+
+    @cached_property
+    def srgb(self) -> tuple[float, float, float]:
+        r, g, b = self.rgb8
+        return (r / 255.0, g / 255.0, b / 255.0)
+
+    @cached_property
+    def hsv(self) -> tuple[float, float, float]:
+        return colorsys.rgb_to_hsv(*self.srgb)
+
+    @cached_property
+    def hls(self) -> tuple[float, float, float]:
+        return colorsys.rgb_to_hls(*self.srgb)
+
     @property
     def rgb(self) -> str:
         """Convert a hex color to rgb."""
-        return "%s,%s,%s" % (*_util().hex_to_rgb(self.hex_color),)
+        return "%s,%s,%s" % (*self.rgb8,)
 
     @property
     def rgbspace(self) -> str:
         """Convert a hex color to rgb separated by spaces."""
-        return "%s %s %s" % (*_util().hex_to_rgb(self.hex_color),)
+        return "%s %s %s" % (*self.rgb8,)
 
     @property
     def xrgba(self) -> str:
@@ -51,7 +76,7 @@ class Color:
     def rgba(self) -> str:
         """Convert a hex color to rgba."""
         return "rgba(%s,%s,%s,%s)" % (
-            *_util().hex_to_rgb(self.hex_color),
+            *self.rgb8,
             self.alpha_dec,
         )
 
@@ -110,17 +135,17 @@ class Color:
     @property
     def red(self) -> str:
         """Red value as float between 0 and 1."""
-        return "%.3f" % (_util().hex_to_rgb(self.hex_color)[0] / 255.0)
+        return "%.3f" % (self.rgb8[0] / 255.0)
 
     @property
     def green(self) -> str:
         """Green value as float between 0 and 1."""
-        return "%.3f" % (_util().hex_to_rgb(self.hex_color)[1] / 255.0)
+        return "%.3f" % (self.rgb8[1] / 255.0)
 
     @property
     def blue(self) -> str:
         """Blue value as float between 0 and 1."""
-        return "%.3f" % (_util().hex_to_rgb(self.hex_color)[2] / 255.0)
+        return "%.3f" % (self.rgb8[2] / 255.0)
 
     @property
     def red_hex(self) -> str:
@@ -140,17 +165,17 @@ class Color:
     @property
     def red_dec(self) -> str:
         """Red value as decimal."""
-        return "%s" % _util().hex_to_rgb(self.hex_color)[0]
+        return "%s" % self.rgb8[0]
 
     @property
     def green_dec(self) -> str:
         """Green value as decimal."""
-        return "%s" % _util().hex_to_rgb(self.hex_color)[1]
+        return "%s" % self.rgb8[1]
 
     @property
     def blue_dec(self) -> str:
         """Blue value as decimal."""
-        return "%s" % _util().hex_to_rgb(self.hex_color)[2]
+        return "%s" % self.rgb8[2]
 
     @property
     def w3_luminance(self) -> float:
@@ -186,5 +211,5 @@ class Color:
 
     def adjust_alpha(self, alpha="100"):
         adjusted = copy.copy(self)
-        adjusted.alpha_num = alpha
+        adjusted.alpha_num = alpha  # type: ignore[assignment]
         return adjusted
