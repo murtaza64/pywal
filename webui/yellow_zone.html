@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>pywal yellow zone</title>
+    <link rel="stylesheet" href="/assets/style.css" />
+    <link rel="stylesheet" href="/assets/yellow_zone.css" />
+  </head>
+  <body>
+    <div class="app yz">
+      <aside class="panel">
+        <div class="panel__title">yellow zone</div>
+
+        <div class="group">
+          <div class="label">View</div>
+          <label class="field">
+            <span>mode</span>
+            <select id="mode">
+              <option value="base" selected>base (OKLab nearest)</option>
+              <option value="huepen">huepen (OKLab + k*hue)</option>
+              <option value="huepen+gate">huepen + yellow gate</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>k (hue penalty)</span>
+            <input id="k" type="range" min="0" max="2" step="0.01" value="0.35" />
+            <span id="k-val" class="mono"></span>
+          </label>
+          <label class="field">
+            <span>L slice</span>
+            <input id="L" type="range" min="0.05" max="0.95" step="0.005" value="0.78" />
+            <span id="L-val" class="mono"></span>
+          </label>
+        </div>
+
+        <div class="group">
+          <div class="label">Axes</div>
+          <label class="field">
+            <span>hue center (deg)</span>
+            <input id="h_center" type="range" min="0" max="359" step="1" value="110" />
+            <span id="h_center-val" class="mono"></span>
+          </label>
+          <label class="field">
+            <span>hue span (deg)</span>
+            <input id="h_span" type="range" min="10" max="180" step="1" value="70" />
+            <span id="h_span-val" class="mono"></span>
+          </label>
+          <label class="field">
+            <span>hue step (deg)</span>
+            <input id="h_step" type="range" min="1" max="20" step="1" value="5" />
+            <span id="h_step-val" class="mono"></span>
+          </label>
+          <label class="field">
+            <span>C min</span>
+            <input id="c_min" type="range" min="0" max="0.40" step="0.005" value="0" />
+            <span id="c_min-val" class="mono"></span>
+          </label>
+          <label class="field">
+            <span>C max</span>
+            <input id="c_max" type="range" min="0" max="0.40" step="0.005" value="0.24" />
+            <span id="c_max-val" class="mono"></span>
+          </label>
+          <label class="field">
+            <span>C step</span>
+            <input id="c_step" type="range" min="0.005" max="0.08" step="0.005" value="0.02" />
+            <span id="c_step-val" class="mono"></span>
+          </label>
+        </div>
+
+        <div class="group">
+          <div class="label">Yellow Zone</div>
+          <label class="field">
+            <span>yellow center (deg)</span>
+            <input id="y_center" type="range" min="0" max="359" step="1" value="110" />
+            <span id="y_center-val" class="mono"></span>
+          </label>
+          <label class="field">
+            <span>yellow width (deg)</span>
+            <input id="y_width" type="range" min="1" max="90" step="1" value="18" />
+            <span id="y_width-val" class="mono"></span>
+          </label>
+          <label class="field">
+            <span>yellow gate: min L</span>
+            <input id="y_min_L" type="range" min="0" max="1" step="0.01" value="0.55" />
+            <span id="y_min_L-val" class="mono"></span>
+          </label>
+          <label class="field">
+            <span>yellow gate: min C</span>
+            <input id="y_min_C" type="range" min="0" max="0.40" step="0.005" value="0.06" />
+            <span id="y_min_C-val" class="mono"></span>
+          </label>
+
+          <label class="switch" title="Outline cells in yellow zone">
+            <input id="show_zone" type="checkbox" checked />
+            <span class="switch__track"><span class="switch__thumb"></span></span>
+            <span class="switch__label">Show zone outline</span>
+          </label>
+          <label class="switch" title="Outline gamut-clipped cells">
+            <input id="show_clip" type="checkbox" checked />
+            <span class="switch__track"><span class="switch__thumb"></span></span>
+            <span class="switch__label">Show gamut clip</span>
+          </label>
+        </div>
+
+        <div class="group">
+          <div class="label">Tips</div>
+          <div class="muted">Hover a cell for OKLCH + mapped chroma.</div>
+          <div class="muted">Gamut mapping clamps high C to max-in-gamut, so many cells can become identical.</div>
+        </div>
+      </aside>
+
+      <main class="main yzmain">
+        <div class="block block--wide">
+          <div class="block__title">Grid</div>
+          <div id="stats" class="muted"></div>
+          <div id="grid" class="yzgrid" aria-label="yellow zone grid"></div>
+        </div>
+      </main>
+    </div>
+
+    <script src="/assets/yellow_zone.js"></script>
+  </body>
+</html>

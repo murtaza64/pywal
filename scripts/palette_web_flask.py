@@ -142,6 +142,12 @@ def index():
     return send_from_directory(WEBUI, "index.html")
 
 
+@app.get("/yellow-zone")
+@app.get("/yellow-zone.html")
+def yellow_zone():
+    return send_from_directory(WEBUI, "yellow_zone.html")
+
+
 @app.get("/assets/<path:name>")
 def assets(name: str):
     return send_from_directory(ASSETS, name)

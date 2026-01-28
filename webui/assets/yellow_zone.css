@@ -1,0 +1,60 @@
+.yz .panel {
+  grid-column: 1;
+}
+
+.yzmain {
+  overflow: auto;
+}
+
+.yzgrid {
+  display: inline-grid;
+  grid-auto-flow: row;
+  gap: 0;
+  border: var(--border-w) solid var(--border);
+  background: var(--gen-bg);
+  padding: 0;
+}
+
+.yzcell {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  line-height: 1;
+  border-right: 1px solid color-mix(in srgb, var(--gen-bg) 70%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--gen-bg) 70%, transparent);
+  user-select: none;
+}
+
+.yzcell--axis {
+  background: var(--gen-bg);
+  color: var(--subtext);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+
+.yzcell--zone {
+  outline: 2px solid color-mix(in srgb, var(--accent1) 70%, transparent);
+  outline-offset: -2px;
+}
+
+.yzcell--clip {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent0) 75%, transparent);
+}
+
+@media (max-width: 860px) {
+  .app.yz {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  .yz .panel {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .yzmain {
+    grid-column: 1;
+    grid-row: 2;
+  }
+}

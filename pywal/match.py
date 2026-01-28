@@ -26,11 +26,13 @@ TARGET_HUES = {k: v / 360 for k, v in {
 
 TARGET_COLORS = {
     "red": (0, 1, 1),
-    "green": (120/360, 1, 1),
-    "yellow": (60/360, 1, 1),
-    "blue": (240/360, 1, 1),
-    "magenta": (300/360, 1, 1),
-    "cyan": (180/360, 1, 1),
+    "green": (120 / 360, 1, 1),
+    # Yellow sRGB primary (#ffff00) skews yellow-green in OKLCH.
+    # Use a warmer canonical yellow.
+    "yellow": colorsys.rgb_to_hsv(0xDE / 255, 0xC8 / 255, 0x38 / 255),
+    "blue": (240 / 360, 1, 1),
+    "magenta": (300 / 360, 1, 1),
+    "cyan": (180 / 360, 1, 1),
 }
 
 
@@ -191,8 +193,9 @@ def choose_colors_for_each_target2(generated_palette: list[Color]) -> dict[str, 
 
             if dist_rad > tol_rad:
                 palette[target] = interpolate_by_avg_sv(candidate_color, target, tol_rad, avg_c, avg_l)
+                sq_old = get_colored_square(candidate_color)
                 sq = get_colored_square(palette[target])
-                logging.warning(f"bad match for {target} interpolated to {sq*2}")
+                logging.warning(f"bad match for {target} interpolated from {sq_old*2} to {sq*2}")
             else:
                 palette[target] = candidate_color
                 generated_palette.remove(candidate_color)
@@ -245,18 +248,18 @@ def offset_target_hue(h, target_h, push_amount=0.15):
     return decreased
 
 def interpolate_by_avg_sv(original_color: Color, target: str, tolerance_rad: float, avg_c: float, avg_l: float) -> Color:
-    # Push the target hue towards the actual hue.
-    candidate_hue = _normalize_rad(original_color.oklch.h_rad)
-    target_hue = TARGET_OKLCH_HUE_RAD[target]
-    new_h = _offset_target_hue_rad(candidate_hue, target_hue, tolerance_rad)
+    # Bad match: synthesize a centered target color.
+    # Don't push to the tolerance boundary; don't dull/darken; use palette averages.
+    _ = original_color
+    _ = tolerance_rad
+    new_h = TARGET_OKLCH_HUE_RAD[target]
 
-    # Dull synthesized color since it wasn't part of the palette.
-    new_c = avg_c / 2.0
-    new_l = avg_l * 0.8
+    new_c = avg_c
+    new_l = avg_l
 
     new_color = Color.from_oklch(oklab.OKLCH(L=new_l, C=new_c, h_rad=new_h))
     sq = get_colored_square(new_color)
-    logging.log(VERBOSE, f"interpolated by avg L and C to get {target} color: {sq}{sq}")
+    logging.log(VERBOSE, f"synthesized by avg L/C to get {target} color: {sq}{sq}")
     return new_color
 
 # def fix_bad_colors(color_map):
