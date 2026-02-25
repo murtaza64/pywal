@@ -19,6 +19,7 @@ from .print import palette_absolute
 from .settings import __cache_version__
 from .color import Color, rgb_to_hex
 from . import colorthief
+from . import oklab
 
 # Foreground color thresholds for white-ish appearance
 COLOR_7_MAX_SATURATION = 0.2
@@ -135,6 +136,66 @@ def colors_to_dict(colors: dict[int | str, Color], img):
     logging.debug("Subsurface colors:")
     subsurface_values = [colors_hex[f"subsurface{i}"] for i in range(3)]
     palette_absolute(subsurface_values)
+    
+    # Generate diff background colors for delta with clamped chroma
+    diff_colors: dict[str, str] = {}
+    
+    # Get base ANSI colors for hue reference (from Color objects dict)
+    red_base = colors.get("red") or colors[1]
+    green_base = colors.get("green") or colors[2]
+    
+    # Target lightness and max chroma for diff backgrounds
+    DIFF_BASE_LIGHTNESS = 0.25
+    DIFF_EMPH_LIGHTNESS = 0.4
+    DIFF_CHROMA_MAX = 0.5  # Maximum chroma for diff backgrounds
+    
+    # Minus (deletion) backgrounds - use red hue
+    red_lch = red_base.oklch
+    diff_minus_bg = Color.from_oklch(
+        oklab.OKLCH(
+            L=DIFF_BASE_LIGHTNESS,
+            C=min(red_lch.C, DIFF_CHROMA_MAX),
+            h_rad=red_lch.h_rad
+        )
+    )
+    diff_minus_emph = Color.from_oklch(
+        oklab.OKLCH(
+            L=DIFF_EMPH_LIGHTNESS,
+            C=min(red_lch.C, DIFF_CHROMA_MAX),
+            h_rad=red_lch.h_rad
+        )
+    )
+    
+    # Plus (addition) backgrounds - use ANSI green hue
+    green_lch = green_base.oklch
+    diff_plus_bg = Color.from_oklch(
+        oklab.OKLCH(
+            L=DIFF_BASE_LIGHTNESS,
+            C=min(green_lch.C, DIFF_CHROMA_MAX),
+            h_rad=green_lch.h_rad
+        )
+    )
+    diff_plus_emph = Color.from_oklch(
+        oklab.OKLCH(
+            L=DIFF_EMPH_LIGHTNESS,
+            C=min(green_lch.C, DIFF_CHROMA_MAX),
+            h_rad=green_lch.h_rad
+        )
+    )
+    
+    # Log the generated colors
+    _log_color("diff_minus_bg", diff_minus_bg)
+    _log_color("diff_minus_emph", diff_minus_emph)
+    _log_color("diff_plus_bg", diff_plus_bg)
+    _log_color("diff_plus_emph", diff_plus_emph)
+    
+    # Add to colors dict
+    diff_colors["diff_minus_bg"] = diff_minus_bg.hex_color
+    diff_colors["diff_minus_emph"] = diff_minus_emph.hex_color
+    diff_colors["diff_plus_bg"] = diff_plus_bg.hex_color
+    diff_colors["diff_plus_emph"] = diff_plus_emph.hex_color
+    
+    colors_hex.update(diff_colors)
     
     
     # Generate bright variants of ANSI colors

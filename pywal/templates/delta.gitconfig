@@ -1,0 +1,42 @@
+# Delta configuration using pywal colors
+# Auto-generated from: {wallpaper}
+
+[delta]
+    # Diff background colors (pywal-generated with clamped chroma)
+    # L=0.25 for base, L=0.4 for emphasis, max C=0.5
+    minus-style = syntax "{diff_minus_bg}"
+    minus-emph-style = syntax bold "{diff_minus_emph}"
+    plus-style = syntax "{diff_plus_bg}"
+    plus-emph-style = syntax bold "{diff_plus_emph}"
+    
+    # Line number colors (use existing ANSI red/green)
+    line-numbers-minus-style = "{red}"
+    line-numbers-plus-style = "{green}"
+    
+    # Other line number styles (neutral colors)
+    line-numbers-left-style = 240
+    line-numbers-right-style = 240
+    line-numbers-zero-style = "#999999"
+    
+    # Base delta settings
+    navigate = true
+    light = false
+    side-by-side = true
+    pager = moor
+    commit-decoration-style = none
+    dark = true
+    file-added-label = [+]
+    file-copied-label = [C]
+    file-decoration-style = none
+    file-modified-label = [M]
+    file-removed-label = [-]
+    file-renamed-label = [R]
+    file-style = 004 bold
+    hunk-header-decoration-style = none
+    hunk-header-file-style = "#999999"
+    hunk-header-line-number-style = "#999999"
+    hunk-header-style = syntax
+    line-numbers = true
+    whitespace-error-style = "#280050" reverse
+    zero-style = syntax
+    syntax-theme = Nord

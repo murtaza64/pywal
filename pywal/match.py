@@ -51,9 +51,13 @@ def _target_oklch_hue_rad() -> dict[str, float]:
 
 TARGET_OKLCH_HUE_RAD = _target_oklch_hue_rad()
 
+# Manually tuned green target hue to 145° OKLCH (from default ~142.5°)
+# to better center the acceptable range and avoid yellow-greens
+TARGET_OKLCH_HUE_RAD["green"] = 2.530727  # 145° in radians
+
 HUE_TOLERANCES = {
     "red": 0.15,
-    "green": 0.15,
+    "green": 30 / 360,  # 30° (0.0833) - Manually tuned to exclude yellow-greens while accepting cyan-greens
     "yellow": 0.1,
     "blue": 0.15,
     "magenta": 0.15,
