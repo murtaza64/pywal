@@ -1,0 +1,35 @@
+"selected" = {{ bg = "{surface0}" }}
+"border" = {{ fg = "{surface4}" }}
+"title" = {{ fg = "{color6}", bold = true }}
+"shortcut" = {{ fg = "{color1}" }}
+"matched" = {{ fg = "{color3}", underline = true }}
+
+"source_marker" = {{ bg = "{surface1}", fg = "{foreground}", bold = true }}
+"target_marker" = {{ bg = "{surface2}", fg = "{foreground}", bold = true }}
+
+"status" = {{ bg = "{subsurface1}" }}
+"status title" = {{ bg = "{color6}", fg = "{background}", bold = true }}
+"status shortcut" = {{ fg = "{color1}" }}
+"status dimmed" = {{ fg = "{surface4}" }}
+
+"revset completion selected" = {{ bg = "{surface0}", bold = true }}
+"revset completion matched" = {{ fg = "{color3}", bold = true }}
+"revset completion dimmed" = {{ fg = "{surface4}" }}
+
+"menu" = {{ bg = "{subsurface1}" }}
+"menu title" = {{ fg = "{color6}", bold = true }}
+"menu shortcut" = {{ fg = "{color1}" }}
+"menu dimmed" = {{ fg = "{surface4}" }}
+"menu border" = {{ fg = "{surface4}" }}
+"menu selected" = {{ bg = "{surface0}", bold = true }}
+
+"revisions details selected" = {{ bg = "{surface1}", bold = true }}
+
+"help" = {{ bg = "{subsurface1}" }}
+"help title" = {{ fg = "{color6}", bold = true }}
+"help border" = {{ fg = "{surface4}" }}
+
+"confirmation" = {{ bg = "{subsurface1}" }}
+"confirmation border" = {{ fg = "{color1}" }}
+
+"preview border" = {{ fg = "{surface4}" }}
