@@ -151,5 +151,25 @@ class TestStudio(unittest.TestCase):
         self.assertEqual(res["results"][0]["status"], "verified")
         self.assertEqual(json.loads(Path(studio.live, "colors.json").read_text())["colors"]["red"], first["colors"]["red"])
 
+    def test_cross_site_form_posts_cannot_reach_apply(self):
+        studio = StudioServer("--allow-apply")
+        self.addCleanup(studio.close)
+        req = urllib.request.Request(f"http://127.0.0.1:{studio.port}/api/apply", data=b'{"targets":["files"]}', headers={"Content-Type": "text/plain"})
+        with self.assertRaises(urllib.error.HTTPError) as err:
+            urllib.request.urlopen(req, timeout=10)
+        self.assertEqual(err.exception.code, 403)
+        req = urllib.request.Request(f"http://127.0.0.1:{studio.port}/api/apply", data=b"{}", headers={"Content-Type": "application/json", "Origin": "http://evil.example"})
+        with self.assertRaises(urllib.error.HTTPError) as err:
+            urllib.request.urlopen(req, timeout=10)
+        self.assertEqual(err.exception.code, 403)
+
+    def test_palette_service_serves_live_css_with_cors(self):
+        studio = StudioServer()
+        self.addCleanup(studio.close)
+        with urllib.request.urlopen(f"http://127.0.0.1:{studio.port}/palette.css", timeout=10) as r:
+            self.assertEqual(r.headers["Access-Control-Allow-Origin"], "*")
+            self.assertIn("--wal-surface:", r.read().decode())
+
+
 if __name__ == "__main__":
     unittest.main()

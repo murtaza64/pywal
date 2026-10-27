@@ -114,7 +114,13 @@ class Studio:
         """The live wal-palette contract (colours only), memoised on the cache files' mtimes; never writes."""
         stamp = tuple(os.path.getmtime(p) if os.path.isfile(p) else 0 for p in (os.path.join(self.live_dir, n) for n in ("colors.json", "palette.json")))
         if self.palette_memo is None or self.palette_memo[0] != stamp:
-            self.palette_memo = (stamp, contract.current(self.live_dir, persist=False))
+            try:
+                built = contract.current(self.live_dir, persist=False)
+            except (KeyError, TypeError, ValueError, OSError):
+                # A partial or hand-edited colors.json must not take documents' colours down.
+                logging.exception("palette contract build failed; serving the default palette")
+                built = contract.build(contract.DEFAULT_COLORS)
+            self.palette_memo = (stamp, built)
         return self.palette_memo[1]
 
     def backup_list(self):
@@ -250,8 +256,17 @@ class Handler(BaseHTTPRequestHandler):
             return self.error(404, "not found")
         except ValueError as e:
             return self.error(400, str(e))
+        except Exception as e:  # noqa: BLE001 - answer instead of dropping the connection
+            logging.exception("request failed")
+            return self.error(500, f"{type(e).__name__}: {e}")
 
     def do_POST(self):
+        # Other local pages must not drive Apply: cross-origin JSON needs a preflight this server
+        # never answers, and a present Origin must be our own.
+        host = self.headers.get("Host", "")
+        origin = self.headers.get("Origin")
+        if not self.headers.get("Content-Type", "").startswith("application/json") or (origin and urlparse(origin).netloc != host):
+            return self.error(403, "same-origin JSON only")
         url = urlparse(self.path)
         length = int(self.headers.get("Content-Length", "0") or 0)
         body = json.loads(self.rfile.read(length) or b"{}")
