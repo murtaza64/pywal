@@ -1,0 +1,4 @@
+#!/bin/sh
+# wal-palette: the wal-palette/1 helper (pywal/contract.py, stdlib only). Symlink onto PATH.
+self=$(readlink -f "$0" 2>/dev/null || python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$0")
+exec python3 "$(dirname "$self")/../pywal/contract.py" "$@"

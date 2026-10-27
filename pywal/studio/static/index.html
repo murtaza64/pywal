@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Palette Studio</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/static/studio.css">
+</head>
+<body>
+<header class="bar">
+  <span class="mark">wal<b>studio</b></span>
+  <span class="where" id="where">…</span>
+  <span class="grow"></span>
+  <div class="syncbar" id="syncbar" role="list" aria-label="Sync state"></div>
+  <button class="btn" id="chrome" title="Studio chrome: tinted by the draft, or fixed neutral">Tinted</button>
+  <button class="btn" id="compare" title="Hold C to flash the original">Compare</button>
+  <button class="btn" id="revert" title="Back to the live palette and settings">Revert</button>
+  <button class="btn btn-primary" id="apply-top">Apply…</button>
+</header>
+
+<main class="studio">
+  <section class="stage" id="stage">
+    <div class="layer" id="layer-draft"></div>
+    <div class="layer original" id="layer-orig" hidden></div>
+    <div class="split" id="split" hidden><span>original</span><i></i><span>draft</span></div>
+    <div class="flash" id="flash" hidden>ORIGINAL</div>
+    <div class="busy" id="busy" hidden></div>
+  </section>
+
+  <aside class="rail">
+    <section>
+      <h2>Wallpaper <span class="aux" id="wall-name"></span><button class="btn mini" id="themes-btn" title="Themes: load a builtin or saved theme, save the draft">Themes</button></h2>
+      <div class="themes" id="themes" hidden>
+        <input type="text" id="theme-filter" placeholder="filter themes" spellcheck="false">
+        <div class="theme-list" id="theme-list"></div>
+        <div class="row"><input type="text" id="theme-name" spellcheck="false" maxlength="64"><button class="btn" id="theme-save">Save</button></div>
+      </div>
+      <div class="strip" id="walls"></div>
+      <div class="row">
+        <button class="btn" id="prev">←</button>
+        <button class="btn" id="next">→</button>
+        <button class="btn" id="random">Random</button>
+        <button class="btn" id="live-wall">Live</button>
+      </div>
+      <label class="check"><input type="checkbox" id="keep"><span>Keep tuning when switching (walm); off = <code>wallpaper</code> defaults</span></label>
+    </section>
+
+    <section>
+      <h2>Terminal glass</h2>
+      <label class="ctl"><span>Blur</span><input type="range" id="blur" min="0" max="48" step="1"><output for="blur"></output></label>
+      <label class="ctl floor"><span>Darken</span><input type="range" id="tint" min="0" max="1" step="0.01"><output for="tint"></output><i class="floor-mark" id="floor-mark" hidden></i></label>
+      <label class="check"><input type="checkbox" id="exact"> Exact render (ImageMagick file kitty will load)</label>
+    </section>
+
+    <section>
+      <h2>Palette</h2>
+      <div class="seg" id="mode"><button data-v="dark">Dark</button><button data-v="light">Light</button></div>
+      <label class="ctl"><span>Contrast</span><input type="range" id="contrast" min="0" max="6" step="0.1"><output for="contrast"></output></label>
+      <label class="ctl"><span>Saturate</span><input type="range" id="saturate" min="-100" max="100" step="1"><output for="saturate"></output></label>
+      <label class="ctl"><span>Brightness</span><input type="range" id="brightness" min="-100" max="100" step="1"><output for="brightness"></output></label>
+      <label class="ctl"><span>Bg light</span><input type="range" id="bg_lightness" min="0" max="0.4" step="0.005"><output for="bg_lightness"></output></label>
+      <label class="ctl"><span>Bg chroma</span><input type="range" id="bg_chroma" min="0" max="0.15" step="0.002"><output for="bg_chroma"></output></label>
+      <label class="ctl"><span>Shading</span><select id="shading"><option>lighten</option><option>darken</option></select></label>
+      <label class="ctl"><span>Choose</span><select id="choose"><option>backend</option><option>ansi</option><option>brightness</option><option>saturation</option><option>ansi-brightness</option><option>ansi-saturation</option><option>ansi-shuffle</option><option>random</option></select></label>
+      <label class="ctl"><span>Strategy</span><select id="generation_strategy"><option>subtractive</option><option>iterative</option></select></label>
+      <label class="ctl"><span>Initial N</span><input type="range" id="subtractive_initial" min="8" max="32" step="1"><output for="subtractive_initial"></output></label>
+      <label class="ctl"><span>Bg pick</span><select id="bg_strategy"><option>backend</option><option>average</option></select></label>
+      <label class="ctl"><span>Seed</span><input type="text" id="seed" spellcheck="false"><button class="btn mini" id="reseed">↻</button></label>
+      <div class="row">
+        <button class="btn" id="shuffle-post" title="wals: shuffle brightness, saturation, shading">Shuffle</button>
+        <button class="btn" id="shuffle-all" title="Shuffle the generator too">Shuffle all</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Slot <span class="aux" id="slot-name">click a swatch</span></h2>
+      <div class="slot" id="slot" hidden>
+        <input type="color" id="slot-color">
+        <input type="text" id="slot-hex" spellcheck="false" maxlength="7">
+        <button class="btn" id="slot-clear">Unpin</button>
+      </div>
+      <div class="lch" id="lch" hidden>
+        <label class="ctl"><span>L</span><input type="range" id="lch-l" min="0" max="1" step="0.005"><output id="lch-lo"></output></label>
+        <label class="ctl"><span>C</span><input type="range" id="lch-c" min="0" max="0.37" step="0.002"><output id="lch-co"></output></label>
+        <label class="ctl"><span>H</span><input type="range" id="lch-h" min="0" max="360" step="1"><output id="lch-ho"></output></label>
+      </div>
+    </section>
+
+    <section>
+      <h2>Sync <span class="aux" id="apply-state"></span></h2>
+      <div id="targets"></div>
+      <div class="row">
+        <button class="btn" id="plan">Plan</button>
+        <button class="btn btn-primary" id="apply">Apply</button>
+        <button class="btn" id="probe">Re-check</button>
+      </div>
+      <pre class="log" id="log" hidden></pre>
+      <div class="undo" id="undo" hidden><h3>Undo · load the theme from before an Apply</h3><div id="undo-list"></div></div>
+    </section>
+
+    <section>
+      <h2>Outputs <span class="aux">scratch, not live</span></h2>
+      <div class="outputs" id="outputs"></div>
+      <pre class="log" id="output" hidden></pre>
+    </section>
+  </aside>
+</main>
+
+<template id="scene">
+  <div class="scene">
+    <div class="term">
+      <div class="glass"><div class="wp"></div><div class="ladder"></div><div class="tint"></div></div>
+      <div class="tabs"><span class="tab on">~/dotfiles</span><span class="tab">nvim</span><span class="tab">es</span></div>
+      <pre class="tty"></pre>
+    </div>
+    <div class="side">
+      <div class="fox">
+        <div class="fox-tabs"><span class="on">pywalfox</span><span>github</span><span>localhost</span></div>
+        <div class="fox-url"><i></i>about:pywalfox</div>
+      </div>
+      <div class="es">
+        <div class="es-nav"><b>opencode</b><span class="on">palette-studio</span><span>ux-feel</span><span>palette-art</span></div>
+        <div class="es-body"><p class="es-title">Session</p><p>Generated 16 colours from <em>wallpaper</em>.</p><p class="es-ok">● verified</p><p class="es-warn">● waiting</p></div>
+      </div>
+    </div>
+    <div class="swatches"></div>
+  </div>
+</template>
+
+<script src="/static/studio.js" type="module"></script>
+</body>
+</html>

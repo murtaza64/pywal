@@ -11,6 +11,7 @@ from . import util
 from .color import Color
 from .settings import CONF_DIR, MODULE_DIR
 from .util import get_cache_dir, get_cache_file
+from . import contract
 
 
 class ExportFile:
@@ -186,6 +187,7 @@ def every(colors):
     output_dir = get_cache_dir()
     join = os.path.join  # Minor optimization.
     generate_color_images(colors, output_dir)
+    nested = colors
     colors = flatten_colors(colors)
     template_dir = join(str(MODULE_DIR), "templates")
     template_dir_user = join(str(CONF_DIR), "templates")
@@ -197,6 +199,8 @@ def every(colors):
         if file.name != ".DS_Store" and not file.name.endswith(".swp"):
             template(colors, file.path, join(output_dir, file.relative_path))
 
+    # The shared palette contract for agent artifacts (palette.json + palette.css).
+    contract.write(nested, output_dir)
     logging.info("Exported all user files to %s", output_dir)
 
 
