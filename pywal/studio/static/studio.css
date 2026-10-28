@@ -73,7 +73,7 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 3px; bord
 .target .t { color: var(--text); }
 .target .d { grid-column: 2; color: var(--faint); font-size: 11px; word-break: break-word; }
 .target .s { font-size: 11px; margin-left: 6px; text-transform: uppercase; }
-.s.verified { color: var(--ok); } .s.sent { color: var(--accent); } .s.mismatch, .s.failed { color: var(--bad); } .s.skipped { color: var(--faint); }
+.s.verified { color: var(--ok); } .s.sent, .s.loaded { color: var(--accent); } .s.mismatch, .s.failed { color: var(--bad); } .s.skipped { color: var(--faint); }
 .target.off .t { color: var(--faint); }
 
 .log { margin: 8px 0 0; max-height: 220px; overflow: auto; background: var(--crust); border: 1px solid var(--surface0); padding: 6px 8px; font-size: 11px; white-space: pre-wrap; color: var(--subtext); }

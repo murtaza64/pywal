@@ -14,6 +14,10 @@ from pathlib import Path
 
 HOME = os.path.expanduser("~")
 ES_PORT_FILE = os.path.join(HOME, "Library/Application Support/Editspace/loopback-port")
+# es-desktop records the palette it now shows here (es-appearance-receipt/1); keyless, local, read-only.
+ES_RECEIPT = os.environ.get("PYWAL_STUDIO_ES_RECEIPT") or os.path.join(HOME, "Library/Application Support/Editspace/appearance-receipt.json")
+# es-desktop polls colors.json every 0.5s and debounces 0.3s.
+ES_RECEIPT_WAIT = float(os.environ.get("PYWAL_STUDIO_ES_WAIT", "5"))
 PYWALFOX_MANIFESTS = [
     os.path.join(HOME, "Library/Application Support/Mozilla/NativeMessagingHosts/pywalfox.json"),
     os.path.join(HOME, ".mozilla/native-messaging-hosts/pywalfox.json"),
@@ -66,7 +70,7 @@ def plan(studio, targets):
                           "runs": [f"kitty @ --to {s} set-colors --all --configured colors-kitty.conf background_tint={look.get('tint', 0.95):g}" for s in kitty_sockets()]
                           + [f"kitty @ --to {s} set-background-image --all --configured wallpaper.blurred" for s in kitty_sockets()]})
         if target == "es-desktop":
-            steps.append({"target": target, "runs": [], "note": "No command: the app polls colors.json."})
+            steps.append({"target": target, "runs": [], "note": f"No command: the app polls colors.json; proof = {display(ES_RECEIPT)}"})
         if target == "pywalfox":
             steps.append({"target": target, "runs": ["pywalfox update"]})
         if target == "tmux":
@@ -135,9 +139,24 @@ def apply_es(studio, draft):
     seen = probe_es()
     if not seen.get("available"):
         return {"status": "skipped", "detail": seen.get("detail")}
-    # The app's appearance route needs its per-launch key, so there is no external readback;
-    # it re-reads colors.json within a couple of seconds of the files step.
-    return {"status": "sent", "detail": "follows colors.json; confirm in the app"}
+    if not os.path.isfile(ES_RECEIPT):
+        return {"status": "sent", "detail": "follows colors.json; this es-desktop build writes no appearance receipt"}
+    want = draft["special"]["background"].lower()
+    # The wal-palette revision Apply just wrote; app pages report the revision they render.
+    revision = (read_json(os.path.join(studio.live_dir, "palette.json")) or {}).get("revision")
+    deadline = time.monotonic() + ES_RECEIPT_WAIT
+    while True:
+        receipt = read_json(ES_RECEIPT) or {}
+        shown = str(receipt.get("background", "")).lower()
+        tabs = [a for a in receipt.get("applied") or [] if isinstance(a, dict) and revision and a.get("walRevision") == revision]
+        if shown == want and tabs:
+            return {"status": "verified", "detail": f"{len(tabs)} host tab(s) render wal revision {revision}"}
+        if time.monotonic() > deadline:
+            if shown == want:
+                # `loaded` = the app process holds the palette, but no open page acknowledged rendering it.
+                return {"status": "loaded", "detail": f"app loaded background {shown}; no page acknowledged revision {revision}"}
+            return {"status": "mismatch", "detail": f"app still shows {shown or '?'} after {ES_RECEIPT_WAIT:g}s"}
+        time.sleep(0.2)
 
 
 def apply_pywalfox(studio, draft):
@@ -192,8 +211,11 @@ def probe_kitty():
 
 def probe_es():
     running = os.path.isfile(ES_PORT_FILE) and subprocess.run(["pgrep", "-x", "Editspace"], capture_output=True).returncode == 0
+    receipt = read_json(ES_RECEIPT) if running or os.environ.get("PYWAL_STUDIO_ES_RECEIPT") else None
+    if receipt:
+        return {"available": True, "default": True, "detail": f"shows background {receipt.get('background')} (appearance receipt)"}
     return {"available": running, "default": running,
-            "detail": "running; reads colors.json itself (no keyless readback)" if running else "Editspace app not running"}
+            "detail": "running; reads colors.json itself (no receipt in this build)" if running else "Editspace app not running"}
 
 
 def probe_pywalfox():

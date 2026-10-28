@@ -8,6 +8,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 import urllib.error
@@ -27,7 +28,7 @@ def colourful(path):
 
 
 class StudioServer:
-    def __init__(self, *extra):
+    def __init__(self, *extra, env=None):
         self.root = tempfile.mkdtemp(prefix="studio-test-")
         self.live = os.path.join(self.root, "live")
         self.walls = os.path.join(self.root, "walls")
@@ -41,7 +42,7 @@ class StudioServer:
             s.bind(("127.0.0.1", 0))
             self.port = s.getsockname()[1]
         # A private config dir keeps saved themes out of the real ~/.config/wal.
-        env = {**{k: v for k, v in os.environ.items() if k != "PYWAL_CACHE_DIR"}, "XDG_CONFIG_HOME": os.path.join(self.root, "config")}
+        env = {**{k: v for k, v in os.environ.items() if k != "PYWAL_CACHE_DIR"}, "XDG_CONFIG_HOME": os.path.join(self.root, "config"), **(env or {})}
         self.proc = subprocess.Popen(
             [sys.executable, "-m", "pywal.studio", "--port", str(self.port), "--live-dir", self.live, "--wallpapers", self.walls, "--scratch", os.path.join(self.root, "scratch"), "--backups", os.path.join(self.root, "backups"), *extra],
             env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -165,6 +166,56 @@ class TestStudio(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as err:
             studio.post("/api/preview", {"image": os.path.join(studio.walls, "sweep.png"), "scheme": "../colors.json"})
         self.assertEqual(err.exception.code, 400)
+
+    def test_es_desktop_apply_is_proven_by_the_app_receipt_and_undone_by_a_backup(self):
+        receipt = os.path.join(tempfile.mkdtemp(prefix="es-receipt-"), "appearance-receipt.json")
+        self.addCleanup(shutil.rmtree, os.path.dirname(receipt), True)
+        studio = StudioServer("--allow-apply", env={"PYWAL_STUDIO_ES_RECEIPT": receipt})
+        self.addCleanup(studio.close)
+        # Stand-in for es-desktop (the external app): it re-reads colors.json and records what it shows.
+        Path(receipt).write_text(json.dumps({"schema": "es-appearance-receipt/1", "background": "#010203"}))
+        stop = threading.Event()
+        def follow():
+            # es-desktop records the served palette; an open page acknowledges the revision it renders.
+            while not stop.wait(0.1):
+                live = json.loads(Path(studio.live, "colors.json").read_text())
+                revision = json.loads(Path(studio.live, "palette.json").read_text())["revision"] if Path(studio.live, "palette.json").is_file() else None
+                Path(receipt).write_text(json.dumps({"schema": "es-appearance-receipt/1", "background": live["special"]["background"], "walRevision": revision,
+                                                     "applied": [{"host": "local", "walRevision": revision, "theme": "wallpaper"}]}))
+        threading.Thread(target=follow, daemon=True).start()
+        self.addCleanup(stop.set)
+        sweep = os.path.join(studio.walls, "sweep.png")
+        studio.post("/api/preview", {"image": sweep, "theme": {"source": "builtin", "name": "ashes"}})
+        studio.post("/api/apply", {"targets": ["files"]})
+        studio.post("/api/preview", {"image": sweep, "theme": {"source": "builtin", "name": "gruvbox"}})
+        applied = {r["target"]: r["status"] for r in studio.post("/api/apply", {"targets": ["files", "es-desktop"]})["results"]}
+        self.assertEqual(applied, {"files": "verified", "es-desktop": "verified"})
+        self.assertEqual(json.loads(Path(receipt).read_text())["background"], "#282828")
+        studio.post("/api/preview", {"restore": studio.get("/api/backups")[0]["name"]})
+        undone = {r["target"]: r["status"] for r in studio.post("/api/apply", {"targets": ["files", "es-desktop"]})["results"]}
+        self.assertEqual(undone, {"files": "verified", "es-desktop": "verified"})
+        self.assertEqual(json.loads(Path(receipt).read_text())["background"], "#1c2023")
+
+    def test_es_desktop_without_a_page_acknowledgement_is_only_loaded(self):
+        receipt = os.path.join(tempfile.mkdtemp(prefix="es-receipt-"), "appearance-receipt.json")
+        self.addCleanup(shutil.rmtree, os.path.dirname(receipt), True)
+        # The app process holds the draft background already, but no page has acknowledged rendering it.
+        Path(receipt).write_text(json.dumps({"schema": "es-appearance-receipt/1", "background": "#1c2023", "applied": []}))
+        studio = StudioServer("--allow-apply", env={"PYWAL_STUDIO_ES_RECEIPT": receipt, "PYWAL_STUDIO_ES_WAIT": "0.5"})
+        self.addCleanup(studio.close)
+        studio.post("/api/preview", {"image": os.path.join(studio.walls, "sweep.png"), "theme": {"source": "builtin", "name": "ashes"}})
+        result = studio.post("/api/apply", {"targets": ["files", "es-desktop"]})["results"][1]
+        self.assertEqual(result["status"], "loaded")
+
+    def test_es_desktop_that_never_shows_the_draft_is_a_mismatch(self):
+        receipt = os.path.join(tempfile.mkdtemp(prefix="es-receipt-"), "appearance-receipt.json")
+        self.addCleanup(shutil.rmtree, os.path.dirname(receipt), True)
+        Path(receipt).write_text(json.dumps({"schema": "es-appearance-receipt/1", "background": "#010203"}))
+        studio = StudioServer("--allow-apply", env={"PYWAL_STUDIO_ES_RECEIPT": receipt, "PYWAL_STUDIO_ES_WAIT": "0.5"})
+        self.addCleanup(studio.close)
+        studio.post("/api/preview", {"image": os.path.join(studio.walls, "sweep.png"), "theme": {"source": "builtin", "name": "ashes"}})
+        result = studio.post("/api/apply", {"targets": ["files", "es-desktop"]})["results"][1]
+        self.assertEqual(result["status"], "mismatch")
 
     def test_undo_restores_the_theme_from_before_an_apply(self):
         studio = StudioServer("--allow-apply")

@@ -38,7 +38,7 @@ Run: `uv run -m pywal.studio [--port 4790] [--allow-apply]`. Loopback only. Prev
 |---|---|---|---|
 | files | write `colors.json` + templates into the live cache, `wal`, `wallpaper` link; backup first | re-read `colors.json` | yes |
 | kitty | `kitty @ --to /tmp/kitty-*.sock set-colors --all --configured colors-kitty.conf background_tint=…`, `set-background-image` | `get-colors` per socket | 1 instance |
-| es-desktop | none: polls `colors.json`, blurs wallpaper itself | none externally: route needs the per-launch `x-editspace-key` | running |
+| es-desktop | none: polls `colors.json`, blurs wallpaper itself | `~/Library/Application Support/Editspace/appearance-receipt.json` (es-appearance-receipt/1: background, foreground, wal revision; written by the app on each change). `verified` = served background matches and a page's `applied[].walRevision` equals the revision Apply wrote; background only = `loaded`; no receipt = `sent` | running; receipt needs the es-desktop pin |
 | pywalfox | `pywalfox update` | none (native messaging, no readback) | installed + host manifest |
 | tmux | `tmux source-file ~/.config/tmux/tmux.conf` | exit status | running |
 | opencode, nvim, delta, jjui | read template outputs on next load | file written | via files |
@@ -61,6 +61,6 @@ Apply: files verified (backup kept, now in `~/.cache/pywal-studio/backups/202610
 
 ## Open
 
-- es-desktop proof: needs a keyless read-only appearance readback or an in-app confirmation.
+- es-desktop proof: receipt (opencode 540b5f8a) + page acknowledgement `applied[]` (RHC 1318cf86); proven on fixture with a stand-in app, not live.
 - pywalfox proof: no readback; visual only.
 - Next slices: light-mode es-app variant.
