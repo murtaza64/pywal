@@ -15,6 +15,13 @@ const api = async (path, body) => {
   return data
 }
 const img = (path, w) => `/api/image?path=${encodeURIComponent(path)}&w=${w}`
+// Eight-cell palette band (color0-7) from a band array or a colors.json-shaped object.
+const bandEl = (p) => {
+  const el = Object.assign(document.createElement("span"), { className: "band" })
+  const c = Array.isArray(p) ? p : p.band || Array.from({ length: 8 }, (_, i) => p.colors?.[`color${i}`])
+  el.append(...c.map((hex) => Object.assign(document.createElement("i"), { style: `background:${hex || "transparent"}` })))
+  return el
+}
 const flat = (c) => ({ ...(c?.colors || {}), ...(c?.surfaces || {}), ...(c?.special || {}) })
 
 async function boot() {
@@ -39,6 +46,7 @@ async function boot() {
 function fromLive() {
   S.theme = null
   S.restore = null
+  S.scheme = null
   const live = S.live || {}
   S.image = live.wallpaper || S.state.wallpapers[0]?.path || ""
   S.settings = { ...S.state.defaults, ...(live.settings || {}) }
@@ -132,6 +140,8 @@ function walls() {
     b.dataset.path = w.path
     b.style.backgroundImage = `url("${img(w.path, 240)}")`
     b.onclick = () => pick(w.path)
+    // Solid band = the live cache already holds a generated scheme for this wallpaper.
+    if (w.scheme?.colors) b.append(bandEl(w.scheme))
     return b
   }))
   markWall()
@@ -142,7 +152,7 @@ function markWall() {
     b.classList.toggle("on", b.dataset.path === S.image)
     b.classList.toggle("live", b.dataset.path === S.live?.wallpaper)
   }
-  $("wall-name").textContent = S.image.split("/").pop() + (S.theme ? ` · theme ${S.theme.name}` : "")
+  $("wall-name").textContent = S.image.split("/").pop() + (S.theme ? ` · theme ${S.theme.name}` : S.scheme ? " · cached" : "")
   $("walls").querySelector(".on")?.scrollIntoView({ block: "nearest", inline: "nearest" })
 }
 
@@ -158,12 +168,12 @@ const WRAPPER = { shading: "lighten", contrast: 1.5 }
 // Generation knobs leave theme mode: the palette comes from the wallpaper again.
 function retune(ms) {
   S.restore = null
-  if (S.theme) { S.theme = null; S.overrides = {}; markWall() }
+  if (S.theme || S.scheme) { S.theme = S.scheme = null; S.overrides = {}; markWall() }
   schedule(ms)
 }
 
 function pick(path) {
-  S.restore = null
+  S.restore = S.scheme = null
   S.image = path
   S.overrides = {}
   if (!$("keep").checked && path !== S.live?.wallpaper) {
@@ -184,9 +194,11 @@ async function generate() {
   const ticket = ++inflight
   $("busy").hidden = false
   try {
-    const res = await api("/api/preview", { image: S.image, settings: S.settings, overrides: S.overrides, look: effLook(), theme: S.theme, restore: S.restore })
+    const res = await api("/api/preview", { image: S.image, settings: S.settings, overrides: S.overrides, look: effLook(), theme: S.theme, restore: S.restore, scheme: S.scheme })
     if (ticket !== inflight) return
     S.draft = res.colors
+    // A cached scheme brings the settings that generated it; retuning continues from there.
+    if (S.scheme) { S.settings = { ...S.state.defaults, ...res.colors.settings }; syncControls() }
     S.settings.seed = String(res.colors.settings.seed)
     $("seed").value = S.settings.seed
     renderDraft()
@@ -624,34 +636,54 @@ const readable = (color, bg, target) => { for (let s = 0; s <= 10; s++) { const 
 
 boot().catch((e) => log(`studio failed to start: ${e.message}`))
 
-// Themes (`wal --theme`, `--save-theme`): a theme replaces the generated palette for the chosen wallpaper.
+// Themes (`wal --theme`, `--save-theme`) and cached schemes: either replaces the generated palette.
 async function toggleThemes() {
   const box = $("themes")
   box.hidden = !box.hidden
   $("themes-btn").classList.toggle("on", !box.hidden)
   if (box.hidden) return
-  S.themes = await api("/api/themes")
+  ;[S.themes, S.schemes] = await Promise.all([api("/api/themes"), api("/api/schemes").catch(() => [])])
   $("theme-save").disabled = $("theme-name").disabled = !S.themes.canSave
   $("theme-name").placeholder = S.themes.canSave ? "save draft as…" : "saving needs --allow-apply"
   renderThemes()
   $("theme-filter").focus()
 }
 
+function themeRow(band, name, meta, on, onclick, title) {
+  const b = Object.assign(document.createElement("button"), { className: "theme-row", onclick, title: title || name })
+  b.classList.toggle("on", on)
+  b.append(bandEl(band), Object.assign(document.createElement("span"), { className: "n", textContent: name }), Object.assign(document.createElement("span"), { className: "m", textContent: meta }))
+  return b
+}
+
 function renderThemes() {
   const q = $("theme-filter").value.trim().toLowerCase()
   const t = S.themes
+  const heading = (text) => Object.assign(document.createElement("h3"), { textContent: text })
+  const cached = S.schemes.filter((s) => s.wallpaper.toLowerCase().includes(q))
+  const schemes = cached.length ? [heading(`Cached · ${cached.length}`), ...cached.map((s) => themeRow(
+    s.band, s.wallpaper.split("/").pop(), s.light ? "light" : "dark", S.scheme === s.id,
+    () => {
+      S.restore = S.theme = null
+      S.scheme = s.id
+      S.overrides = {}
+      // A scheme whose wallpaper is not served here still previews on the current wallpaper.
+      if (s.available) S.image = s.wallpaper
+      markWall(); renderThemes(); schedule(0)
+    },
+    s.available ? s.wallpaper : `${s.wallpaper} (not in the wallpaper folder; previews on the current wallpaper)`,
+  ))] : []
   const group = (label, source, light, names) => {
     const hits = names.filter((n) => n.toLowerCase().includes(q))
     if (!hits.length) return []
-    const h = Object.assign(document.createElement("h3"), { textContent: `${label} · ${hits.length}` })
-    return [h, ...hits.map((name) => {
-      const b = Object.assign(document.createElement("button"), { textContent: name })
-      b.classList.toggle("on", S.theme?.name === name && S.theme?.source === source && !!S.theme?.light === light)
-      b.onclick = () => { S.restore = null; S.theme = { source, name, light }; S.overrides = {}; markWall(); renderThemes(); schedule(0) }
-      return b
-    })]
+    return [heading(`${label} · ${hits.length}`), ...hits.map((name) => themeRow(
+      t.bands[`${source}/${light ? "light" : "dark"}/${name}`] || [], name, "",
+      S.theme?.name === name && S.theme?.source === source && !!S.theme?.light === light,
+      () => { S.restore = S.scheme = null; S.theme = { source, name, light }; S.overrides = {}; markWall(); renderThemes(); schedule(0) },
+    ))]
   }
   $("theme-list").replaceChildren(
+    ...schemes,
     ...group("Yours", "user", false, t.user.dark), ...group("Yours · light", "user", true, t.user.light),
     ...group("Dark", "builtin", false, t.builtin.dark), ...group("Light", "builtin", true, t.builtin.light),
   )
@@ -682,7 +714,7 @@ async function undo() {
     btn.classList.toggle("on", S.restore === b.name)
     btn.onclick = () => {
       S.restore = b.name
-      S.theme = null
+      S.theme = S.scheme = null
       S.overrides = {}
       if (b.wallpaper) S.image = b.wallpaper
       markWall()

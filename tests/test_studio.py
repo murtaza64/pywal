@@ -64,7 +64,7 @@ class StudioServer:
             return json.load(r)
 
     def live_snapshot(self):
-        return {n: Path(self.live, n).read_bytes() for n in os.listdir(self.live)}
+        return {str(p.relative_to(self.live)): p.read_bytes() for p in Path(self.live).rglob("*") if p.is_file()}
 
     def close(self):
         self.proc.terminate()
@@ -136,6 +136,35 @@ class TestStudio(unittest.TestCase):
         self.assertEqual(loaded["colors"]["red"], draft["colors"]["red"])
         self.assertEqual(loaded["special"]["background"], draft["special"]["background"])
 
+
+    def test_theme_list_carries_an_eight_cell_band_per_theme(self):
+        studio = StudioServer()
+        self.addCleanup(studio.close)
+        bands = studio.get("/api/themes")["bands"]
+        self.assertEqual(bands["builtin/dark/ashes"], ["#1c2023", "#c7ae95", "#95c7ae", "#aec795", "#ae95c7", "#c795ae", "#95aec7", "#c7ccd1"])
+
+    def test_cached_scheme_loads_as_the_draft_with_its_settings(self):
+        studio = StudioServer()
+        self.addCleanup(studio.close)
+        sweep = os.path.join(studio.walls, "sweep.png")
+        # Any rendered draft has the cached-scheme shape; a theme draft avoids needing ImageMagick.
+        generated = studio.post("/api/preview", {"image": sweep, "settings": {"contrast": 2.5}, "theme": {"source": "builtin", "name": "ashes"}})["colors"]
+        os.makedirs(os.path.join(studio.live, "schemes"))
+        Path(studio.live, "schemes", "sweep_dark_colorthief.json").write_text(json.dumps(generated))
+        before = studio.live_snapshot()
+        listed = studio.get("/api/schemes")
+        self.assertEqual([(s["id"], s["available"], s["band"][1]) for s in listed], [("sweep_dark_colorthief.json", True, generated["colors"]["color1"])])
+        draft = studio.post("/api/preview", {"image": sweep, "scheme": "sweep_dark_colorthief.json"})["colors"]
+        self.assertEqual(draft["colors"]["red"], generated["colors"]["red"])
+        self.assertEqual(draft["settings"]["contrast"], 2.5)
+        self.assertEqual(studio.live_snapshot(), before)
+
+    def test_cached_scheme_names_cannot_leave_the_schemes_folder(self):
+        studio = StudioServer()
+        self.addCleanup(studio.close)
+        with self.assertRaises(urllib.error.HTTPError) as err:
+            studio.post("/api/preview", {"image": os.path.join(studio.walls, "sweep.png"), "scheme": "../colors.json"})
+        self.assertEqual(err.exception.code, 400)
 
     def test_undo_restores_the_theme_from_before_an_apply(self):
         studio = StudioServer("--allow-apply")

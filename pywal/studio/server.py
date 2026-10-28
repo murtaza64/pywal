@@ -99,8 +99,13 @@ class Studio:
             raise ValueError("image must be a wallpaper or the live wallpaper")
         with self.lock:
             apply_settings(body.get("settings") or {})
-            theme, restore = body.get("theme"), body.get("restore")
-            colors = self.load_backup(restore) if restore else load_theme(theme, image) if theme else palette.get(image, cache_dir=self.preview_dir)
+            theme, restore, scheme = body.get("theme"), body.get("restore"), body.get("scheme")
+            colors = (
+                self.load_backup(restore) if restore
+                else self.load_scheme(scheme, image) if scheme
+                else load_theme(theme, image) if theme
+                else palette.get(image, cache_dir=self.preview_dir)
+            )
             colors = apply_overrides(colors, body.get("overrides") or {})
             colors["studio"] = clean_look(body.get("look") or {})
             # Templates render into the scratch cache (PYWAL_CACHE_DIR), never the live one.
@@ -143,11 +148,48 @@ class Studio:
         return pywal_theme.parse(path)
 
     def themes(self):
+        roots = {"user": CONF_DIR, "builtin": MODULE_DIR}
+        names = {s: {b: theme_names(os.path.join(root, "colorschemes", b)) for b in ("dark", "light")} for s, root in roots.items()}
         return {
-            "user": {b: theme_names(os.path.join(CONF_DIR, "colorschemes", b)) for b in ("dark", "light")},
-            "builtin": {b: theme_names(os.path.join(MODULE_DIR, "colorschemes", b)) for b in ("dark", "light")},
+            **names,
+            # Row previews: "source/dark|light/name" -> color0-7.
+            "bands": {
+                f"{s}/{b}/{n}": band(read_json(os.path.join(roots[s], "colorschemes", b, n + ".json")))
+                for s, groups in names.items() for b, ns in groups.items() for n in ns
+            },
             "canSave": self.allow_apply,
         }
+
+    def schemes(self):
+        """The live cache's generated schemes (one per wallpaper, mode and backend), newest first."""
+        out = []
+        for f in Path(self.live_dir, "schemes").glob("*.json"):
+            data = read_json(str(f)) or {}
+            if not isinstance(data.get("colors"), dict) or not data.get("wallpaper"):
+                continue
+            settings = data.get("settings") or {}
+            out.append({
+                "id": f.name,
+                "wallpaper": data["wallpaper"],
+                "available": self.allowed_image(data["wallpaper"]),
+                "light": bool(settings.get("light")),
+                "background": (data.get("special") or {}).get("background"),
+                "band": band(data),
+                "mtime": f.stat().st_mtime,
+            })
+        return sorted(out, key=lambda s: s["mtime"], reverse=True)
+
+    def load_scheme(self, name, image):
+        """A cached scheme as the draft for `image`; its generation settings come with it."""
+        path = Path(self.live_dir, "schemes", os.path.basename(str(name)))
+        if path.suffix != ".json" or not path.is_file():
+            raise ValueError("unknown cached scheme")
+        colors = pywal_theme.parse(str(path))
+        if not isinstance(colors.get("colors"), dict) or not isinstance(colors.get("special"), dict):
+            raise ValueError(f"cached scheme {path.name} is not a colour scheme")
+        ARGS.light = bool((colors.get("settings") or {}).get("light"))
+        colors["wallpaper"] = image
+        return colors
 
     def save_theme(self, body):
         """`wal --save-theme`: store the current draft as a user theme."""
@@ -251,6 +293,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(studio.backup_list())
             if url.path == "/api/themes":
                 return self.json(studio.themes())
+            if url.path == "/api/schemes":
+                return self.json(studio.schemes())
             if url.path == "/api/sync":
                 return self.json(adapters.probe(studio.live_dir))
             return self.error(404, "not found")
@@ -355,6 +399,11 @@ class Handler(BaseHTTPRequestHandler):
 
 def theme_names(folder):
     return sorted(p.stem for p in Path(folder).glob("*.json")) if os.path.isdir(folder) else []
+
+
+def band(data):
+    colors = (data or {}).get("colors") or {}
+    return [colors.get(f"color{i}") for i in range(8)]
 
 
 def load_theme(theme, image):

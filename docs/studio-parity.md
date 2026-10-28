@@ -24,7 +24,8 @@ Run: `uv run -m pywal.studio [--port 4790] [--allow-apply]`. Loopback only. Prev
 | `wofi-wallpaper` (Linux) | thumbnail grid picker | | wallpaper strip |
 | `walcolor N\|key` | read one colour | `colors.properties` | slot readout (CLI unchanged) |
 | `-R/--restore` | restore previous | | Revert (draft); Undo list loads any Apply backup (`~/.cache/pywal-studio/backups`) as the draft, applied through the normal plan + proofs |
-| `--theme`, `-p/--save-theme` | builtin/saved themes | `~/.config/wal/colorschemes` (empty on this Mac) | Themes menu on the Wallpaper title: filter, load as draft for the chosen wallpaper, save draft (gated like Apply). Builtin themes get named ANSI slots + derived surfaces/diff so every template renders |
+| `--theme`, `-p/--save-theme` | builtin/saved themes | `~/.config/wal/colorschemes` (empty on this Mac) | Themes menu on the Wallpaper title: single-column rows with a color0-7 band; filter, load as draft for the chosen wallpaper, save draft (gated like Apply). Builtin themes get named ANSI slots + derived surfaces/diff so every template renders |
+| (cache) | browse cached schemes | `<live>/schemes/*.json` | Film strip: solid color0-7 band under wallpapers with a cached scheme. Themes menu `Cached` group, newest first: loads the scheme exactly, with its generation settings, for its wallpaper (or the current one if its wallpaper is not served) |
 | `-c` | clear cached schemes | | not planned |
 | `-i <dir> --iterative/--recursive` | cycle dir | | not planned (strip covers it) |
 | `-a/--alpha`, `--vte`, `-t`, `-o/--then` | terminal alpha, tty, hooks | | not planned unless asked |
@@ -62,4 +63,4 @@ Apply: files verified (backup kept, now in `~/.cache/pywal-studio/backups/202610
 
 - es-desktop proof: needs a keyless read-only appearance readback or an in-app confirmation.
 - pywalfox proof: no readback; visual only.
-- Next slices: cached schemes browser, light-mode es-app variant.
+- Next slices: light-mode es-app variant.
