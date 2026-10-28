@@ -97,6 +97,16 @@ class TestStudio(unittest.TestCase):
             studio.get("/api/image?path=/etc/hosts")
         self.assertEqual(err.exception.code, 403)
 
+    def test_missing_imagemagick_is_reported_instead_of_dropping_the_preview(self):
+        # A launchd service gets a bare PATH without Homebrew; the engine then exits mid-request.
+        studio = StudioServer(env={"PATH": "/usr/bin:/bin"})
+        self.addCleanup(studio.close)
+        with self.assertRaises(urllib.error.HTTPError) as err:
+            studio.post("/api/preview", {"image": os.path.join(studio.walls, "sweep.png")})
+        self.assertEqual(err.exception.code, 500)
+        self.assertIn("ImageMagick", json.load(err.exception)["error"])
+        self.assertIn("magick", studio.get("/api/state")["engine"]["missing"])
+
     def test_unusable_image_reports_an_error(self):
         studio = StudioServer()
         self.addCleanup(studio.close)

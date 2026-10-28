@@ -61,6 +61,8 @@ Apply: files verified (backup kept, now in `~/.cache/pywal-studio/backups/202610
 
 ## Open
 
+- Service PATH: the engine needs ImageMagick; a launchd job must put `/opt/homebrew/bin` on PATH (the studio warns at start and reports it per preview).
+
 - es-desktop proof: receipt (opencode 540b5f8a) + page acknowledgement `applied[]` (RHC 1318cf86); proven on fixture with a stand-in app, not live.
 - pywalfox proof: no readback; visual only.
 - Next slices: light-mode es-app variant.

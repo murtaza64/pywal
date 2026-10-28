@@ -40,6 +40,8 @@ def serve(host, port, live_dir, wallpapers, scratch, backups, allow_apply):
     handler = type("Handler", (Handler,), {"studio": studio})
     server = ThreadingHTTPServer((host, port), handler)
     print(f"Palette Studio: http://{host}:{port}/  live={live_dir}  apply={'on' if allow_apply else 'off'}", flush=True)
+    if not (shutil.which("magick") or shutil.which("convert")):
+        print("WARNING: ImageMagick (magick) is not on PATH; generated previews will fail. Add its directory to PATH.", flush=True)
     server.serve_forever()
 
 
@@ -66,6 +68,7 @@ class Studio:
             "live": live,
             "look": {**DEFAULT_LOOK, **(live or {}).get("studio", {})},
             "defaults": generation_defaults(),
+            "engine": {"missing": [] if shutil.which("magick") or shutil.which("convert") else ["magick"]},
             "wallpapers": self.wallpaper_index(),
         }
 
@@ -100,12 +103,18 @@ class Studio:
         with self.lock:
             apply_settings(body.get("settings") or {})
             theme, restore, scheme = body.get("theme"), body.get("restore"), body.get("scheme")
-            colors = (
-                self.load_backup(restore) if restore
-                else self.load_scheme(scheme, image) if scheme
-                else load_theme(theme, image) if theme
-                else palette.get(image, cache_dir=self.preview_dir)
-            )
+            try:
+                colors = (
+                    self.load_backup(restore) if restore
+                    else self.load_scheme(scheme, image) if scheme
+                    else load_theme(theme, image) if theme
+                    else palette.get(image, cache_dir=self.preview_dir)
+                )
+            except SystemExit:
+                # The CLI engine exits on a missing tool (ImageMagick); in a server that would kill the
+                # request thread and drop the connection, so the draft would silently stop updating.
+                missing = "" if shutil.which("magick") or shutil.which("convert") else " ImageMagick (magick) is not on this server's PATH."
+                raise RuntimeError(f"palette engine exited.{missing}") from None
             colors = apply_overrides(colors, body.get("overrides") or {})
             colors["studio"] = clean_look(body.get("look") or {})
             # Templates render into the scratch cache (PYWAL_CACHE_DIR), never the live one.

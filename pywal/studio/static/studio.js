@@ -193,6 +193,7 @@ function schedule(ms = 220) {
 async function generate() {
   const ticket = ++inflight
   $("busy").hidden = false
+  status("busy", "updating draft…")
   try {
     const res = await api("/api/preview", { image: S.image, settings: S.settings, overrides: S.overrides, look: effLook(), theme: S.theme, restore: S.restore, scheme: S.scheme })
     if (ticket !== inflight) return
@@ -204,7 +205,11 @@ async function generate() {
     renderDraft()
     outputs(res.outputs)
     slot()
+    status("ok", draftSummary())
   } catch (e) {
+    if (ticket !== inflight) return
+    // The draft on screen is the last good one; say so where the eye is, not only in the rail log.
+    status("bad", `preview failed: ${e.message} · ${S.draft ? "showing the previous draft" : "no draft yet"}`)
     log(`preview failed: ${e.message}`)
   } finally {
     if (ticket === inflight) $("busy").hidden = true
@@ -474,6 +479,21 @@ async function apply() {
     renderOriginal()
     markWall()
   } catch (e) { log(`apply failed: ${e.message}`) }
+}
+
+// Draft status on the stage: what the sliders produced, or why nothing changed.
+function status(kind, text) {
+  const el = $("draft-status")
+  el.dataset.s = kind
+  el.textContent = text
+}
+
+function draftSummary() {
+  const d = flat(S.draft), l = flat(S.live)
+  const changed = SAME.filter((k) => (d[k] || "").toLowerCase() !== (l[k] || "").toLowerCase()).length
+  const mode = S.theme ? `theme ${S.theme.name}` : S.scheme ? "cached scheme" : S.restore ? `backup ${S.restore}` : "generated"
+  const where = S.state.allowApply ? "Apply sends it to checked apps" : "preview only: apps keep the live theme"
+  return `draft ${mode} · ${changed ? `${changed}/${SAME.length} colours differ from live` : "same colours as live"} · ${where}`
 }
 
 function log(text) {

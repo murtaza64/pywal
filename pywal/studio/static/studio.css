@@ -185,3 +185,8 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 3px; bord
 .undo button { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: 0; padding: 2px 0; color: var(--text); cursor: pointer; text-align: left; }
 .undo button i { width: 12px; height: 12px; outline: 1px solid var(--surface2); }
 .undo button:hover, .undo button.on { color: var(--accent); }
+
+/* Draft status: where the eye is while tuning. busy = request in flight, ok = draft shown, bad = last preview failed. */
+.draft-status { position: absolute; left: 12px; top: 10px; z-index: 6; max-width: calc(100% - 24px); padding: 3px 10px; font-size: 11px; background: rgba(0,0,0,.72); color: #fff; border-left: 3px solid var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.draft-status[data-s="busy"] { border-left-color: var(--warn); }
+.draft-status[data-s="bad"] { border-left-color: var(--bad); white-space: normal; }
