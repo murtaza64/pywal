@@ -112,10 +112,11 @@ class Studio:
             raise ValueError("image must be a wallpaper or the live wallpaper")
         with self.lock:
             apply_settings(body.get("settings") or {})
-            theme, restore, scheme = body.get("theme"), body.get("restore"), body.get("scheme")
+            theme, restore, scheme, applied = body.get("theme"), body.get("restore"), body.get("scheme"), body.get("history")
             try:
                 colors = (
-                    self.load_backup(restore) if restore
+                    self.load_history(applied, image) if applied
+                    else self.load_backup(restore) if restore
                     else self.load_scheme(scheme, image) if scheme
                     else load_theme(theme, image) if theme
                     else palette.get(image, cache_dir=self.preview_dir)
@@ -147,10 +148,104 @@ class Studio:
             self.palette_memo = (stamp, built)
         return self.palette_memo[1]
 
+    def begin_apply(self, targets):
+        """Record an Apply attempt and its palette before any target is touched.
+
+        Returns (entry, error): an attempt with no later result line stays "unknown" (interrupted);
+        it is never replayed or assumed successful."""
+        draft = self.last
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        folder = os.path.join(self.backups, "history")
+        try:
+            os.makedirs(folder, exist_ok=True)
+            entry_id = next(i for i in (stamp + (f"-{n}" if n else "") for n in range(1000)) if not os.path.exists(os.path.join(folder, i + ".json")))
+            with open(os.path.join(folder, entry_id + ".json"), "w") as f:
+                json.dump(draft, f)
+            try:
+                revision = contract.build(draft)["revision"]
+            except (KeyError, TypeError, ValueError):
+                revision = None
+            wallpaper = draft.get("wallpaper") or ""
+            entry = {
+                "id": entry_id, "phase": "attempt", "at": time.time(), "wallpaper": wallpaper, "fingerprint": fingerprint(wallpaper),
+                "revision": revision, "background": draft["special"]["background"], "band": band(draft), "look": draft.get("studio"),
+                "theme": draft.get("theme"), "liveDir": display(self.live_dir), "targets": targets,
+            }
+            self.append_history(entry)
+            return entry, None
+        except OSError as e:
+            return None, f"history not recorded: {e}"
+
+    def finish_apply(self, entry, results):
+        """Record what each target reported for an attempt."""
+        if not entry:
+            return None, None
+        statuses = [r.get("status") for r in results]
+        result = {
+            "id": entry["id"], "phase": "result", "at": time.time(),
+            "results": [{k: r.get(k) for k in ("target", "status", "detail")} for r in results],
+            # verified = every requested target proved it; partial = some did; none = no target proved it.
+            "outcome": "verified" if statuses and all(s == "verified" for s in statuses) else "partial" if "verified" in statuses else "none",
+            "backup": next((r.get("backup") for r in results if r.get("backup")), None),
+        }
+        try:
+            self.append_history(result)
+            return {**entry, **result}, None
+        except OSError as e:
+            return {**entry, "outcome": "unknown"}, f"history result not recorded: {e}"
+
+    def append_history(self, line):
+        with open(os.path.join(self.backups, "history.jsonl"), "a") as f:
+            f.write(json.dumps(line) + "\n")
+
+    def history(self, offset=0, limit=50, print_=None):
+        """Applied history, newest first: attempts merged with their results, paged, optionally one wallpaper."""
+        path = os.path.join(self.backups, "history.jsonl")
+        merged = {}
+        for line in Path(path).read_text().splitlines() if os.path.isfile(path) else []:
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if rec.get("phase") == "attempt":
+                merged[rec["id"]] = {**rec, "outcome": "unknown", "results": []}
+            elif rec.get("phase") == "result" and rec.get("id") in merged:
+                merged[rec["id"]].update({k: v for k, v in rec.items() if k not in ("phase", "at")})
+        entries = sorted(merged.values(), key=lambda e: e["at"], reverse=True)
+        if print_:
+            entries = [e for e in entries if e.get("fingerprint") == print_]
+        live, here_dir = self.palette().get("revision"), display(self.live_dir)
+        # Current = the newest Apply in this profile whose palette is what the theme files hold now
+        # (an older Apply of the same palette is history, not current). Says nothing about other apps.
+        current = next((e["id"] for e in sorted(merged.values(), key=lambda e: e["at"], reverse=True)
+                        if live and e.get("revision") == live and e.get("liveDir") == here_dir), None)
+        page = entries[offset:offset + limit]
+        prints = {}
+        for p in self.images():
+            prints.setdefault(fingerprint(str(p)), str(p))
+        for e in page:
+            # The image may have moved or been copied: find it again by content fingerprint; else a placeholder.
+            e["image"] = e["wallpaper"] if self.allowed_image(e["wallpaper"]) else prints.get(e.get("fingerprint")) if e.get("fingerprint") else None
+            # Current = this entry's palette is what this profile's theme files hold now; says nothing about other apps.
+            e["current"] = e["id"] == current
+        return {"entries": page, "offset": offset, "total": len(entries), "hasMore": offset + limit < len(entries), "liveRevision": live, "liveDir": here_dir}
+
+    def load_history(self, entry_id, image):
+        """An applied palette as the draft, shown on `image` (its own wallpaper when found, else the current one)."""
+        if not re.fullmatch(r"\d{8}-\d{6}(-\d+)?", str(entry_id)):
+            raise ValueError("unknown history entry")
+        path = os.path.join(self.backups, "history", entry_id + ".json")
+        if not os.path.isfile(path):
+            raise ValueError(f"history entry {entry_id} has no palette")
+        colors = pywal_theme.parse(path)
+        colors["wallpaper"] = image
+        return colors
+
     def backup_list(self):
         """Apply backups, newest first: each is the live theme as it was before that Apply."""
         root = Path(self.backups)
-        entries = sorted((d for d in root.iterdir() if d.is_dir()), reverse=True) if root.is_dir() else []
+        # Backup folders only (named by time); history/ holds applied palettes, not before-Apply state.
+        entries = sorted((d for d in root.iterdir() if d.is_dir() and re.fullmatch(r"\d{8}-\d{6}(-\d+)?", d.name)), reverse=True) if root.is_dir() else []
         out = []
         for d in entries[:20]:
             data = read_json(str(d / "colors.json")) or {}
@@ -326,6 +421,8 @@ class Handler(BaseHTTPRequestHandler):
                 if not name or not os.path.isfile(target):
                     return self.error(404, "no such output")
                 return self.file(Path(target), mime="text/plain; charset=utf-8")
+            if url.path == "/api/history":
+                return self.json(studio.history(int(query.get("offset", 0) or 0), max(1, min(int(query.get("limit", 50) or 50), 200)), query.get("fingerprint") or None))
             if url.path == "/api/backups":
                 return self.json(studio.backup_list())
             if url.path == "/api/themes":
@@ -366,7 +463,12 @@ class Handler(BaseHTTPRequestHandler):
                 if not studio.allow_apply:
                     return self.error(403, "Apply is disabled; restart with --allow-apply")
                 studio.set_look(body.get("look"))
-                return self.json(adapters.apply(studio, studio.permitted(body.get("targets"))))
+                targets = studio.permitted(body.get("targets")) or adapters.DEFAULT_TARGETS
+                entry, error = studio.begin_apply(targets)
+                res = adapters.apply(studio, targets)
+                res["history"], late = studio.finish_apply(entry, res["results"])
+                res["historyError"] = error or late
+                return self.json(res)
             return self.error(404, "not found")
         except (ValueError, AssertionError) as e:
             # The palette engine signals unusable images (e.g. too grey) with assertions.
@@ -436,6 +538,25 @@ class Handler(BaseHTTPRequestHandler):
 
 def theme_names(folder):
     return sorted(p.stem for p in Path(folder).glob("*.json")) if os.path.isdir(folder) else []
+
+
+FINGERPRINTS = {}
+
+
+def fingerprint(path):
+    """Content identity for a wallpaper (sha256 of the whole file), stable across renames and copies; None if unreadable."""
+    try:
+        stat = os.stat(path)
+        key = (os.path.realpath(path), stat.st_mtime_ns, stat.st_size)
+        if key not in FINGERPRINTS:
+            digest = hashlib.sha256()
+            with open(path, "rb") as f:
+                for chunk in iter(lambda: f.read(1 << 20), b""):
+                    digest.update(chunk)
+            FINGERPRINTS[key] = "sha256:" + digest.hexdigest()
+        return FINGERPRINTS[key]
+    except OSError:
+        return None
 
 
 def band(data):

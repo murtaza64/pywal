@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id)
-const S = { floor: 0, results: {}, state: null, live: null, image: "", settings: {}, look: {}, overrides: {}, draft: null, selected: null, split: 0.5, sizes: {}, targets: null, sync: null }
+const S = { historyRows: [], floor: 0, results: {}, state: null, live: null, image: "", settings: {}, look: {}, overrides: {}, draft: null, selected: null, split: 0.5, sizes: {}, targets: null, sync: null }
 const RANGE = ["contrast", "saturate", "brightness", "bg_lightness", "bg_chroma", "subtractive_initial"]
 const SELECT = ["shading", "choose", "generation_strategy", "bg_strategy"]
 // kitty/delta/nvim see the named ANSI slots (templates map kitty colorN to {red} etc.); the fork's
@@ -39,6 +39,7 @@ async function boot() {
   renderOriginal()
   refreshSync()
   undo()
+  history()
   desktop()
   await generate()
   if (location.hash === "#compare") $("compare").click()
@@ -48,6 +49,7 @@ function fromLive() {
   S.theme = null
   S.restore = null
   S.scheme = null
+  S.history = null
   const live = S.live || {}
   // The desktop app opens on the image just chosen in its picker.
   const picked = decodeURIComponent(location.hash.match(/^#pick=(.+)$/)?.[1] ?? "")
@@ -172,12 +174,12 @@ const WRAPPER = { shading: "lighten", contrast: 1.5 }
 // Generation knobs leave theme mode: the palette comes from the wallpaper again.
 function retune(ms) {
   S.restore = null
-  if (S.theme || S.scheme) { S.theme = S.scheme = null; S.overrides = {}; markWall() }
+  if (S.theme || S.scheme || S.history) { S.theme = S.scheme = S.history = null; S.overrides = {}; markWall() }
   schedule(ms)
 }
 
 function pick(path) {
-  S.restore = S.scheme = null
+  S.restore = S.scheme = S.history = null
   S.image = path
   S.overrides = {}
   if (!$("keep").checked && path !== S.live?.wallpaper) {
@@ -199,7 +201,7 @@ async function generate() {
   $("busy").hidden = false
   status("busy", "updating draft…")
   try {
-    const res = await api("/api/preview", { image: S.image, settings: S.settings, overrides: S.overrides, look: effLook(), theme: S.theme, restore: S.restore, scheme: S.scheme })
+    const res = await api("/api/preview", { image: S.image, settings: S.settings, overrides: S.overrides, look: effLook(), theme: S.theme, restore: S.restore, scheme: S.scheme, history: S.history })
     if (ticket !== inflight) return
     S.draft = res.colors
     // A cached scheme brings the settings that generated it; retuning continues from there.
@@ -515,8 +517,10 @@ async function apply() {
     S.sync = res.probe
     targets(by)
     log(res.results.map((r) => `${r.target.padEnd(16)} ${r.status.padEnd(9)} ${r.detail || ""}`).join("\n"))
+    if (res.historyError) log(`${res.results.map((r) => `${r.target.padEnd(16)} ${r.status.padEnd(9)} ${r.detail || ""}`).join("\n")}\n\n${res.historyError}`)
     S.state = await api("/api/state")
     undo()
+    history()
     S.live = S.state.live
     renderOriginal()
     markWall()
@@ -533,7 +537,7 @@ function status(kind, text) {
 function draftSummary() {
   const d = flat(S.draft), l = flat(S.live)
   const changed = SAME.filter((k) => (d[k] || "").toLowerCase() !== (l[k] || "").toLowerCase()).length
-  const mode = S.theme ? `theme ${S.theme.name}` : S.scheme ? "cached scheme" : S.restore ? `backup ${S.restore}` : "generated"
+  const mode = S.theme ? `theme ${S.theme.name}` : S.scheme ? "cached scheme" : S.history ? `applied ${S.history}` : S.restore ? `backup ${S.restore}` : "generated"
   const where = S.state.allowApply ? "Apply sends it to checked apps" : "preview only: apps keep the live theme"
   return `draft ${mode} · ${changed ? `${changed}/${SAME.length} colours differ from live` : "same colours as live"} · ${where}`
 }
@@ -776,7 +780,7 @@ async function undo() {
     btn.classList.toggle("on", S.restore === b.name)
     btn.onclick = () => {
       S.restore = b.name
-      S.theme = S.scheme = null
+      S.theme = S.scheme = S.history = null
       S.overrides = {}
       if (b.wallpaper) S.image = b.wallpaper
       markWall()
@@ -800,4 +804,59 @@ async function desktop() {
     if (res?.error) log(res.error)
   }
   $("where").innerHTML = `${esc(`theme files ${info.liveDir} · wallpapers ${info.wallpapers}`)}<span class="pill live">apply: ${esc(info.targets.join(", "))}</span>`
+}
+
+// Applied history: each Apply with its palette, targets and what each target proved. Paged from the
+// server (newest first), optionally one wallpaper by content fingerprint; one page of rows per fetch.
+const HISTORY_PAGE = 30
+async function history(more) {
+  const filter = $("history-filter").value
+  const offset = more ? S.historyRows.length : 0
+  const page = await api(`/api/history?limit=${HISTORY_PAGE}&offset=${offset}${filter ? `&fingerprint=${encodeURIComponent(filter)}` : ""}`).catch(() => null)
+  if (!page) return
+  S.historyRows = more ? [...S.historyRows, ...page.entries] : page.entries
+  $("history").hidden = !page.total && !filter
+  $("history-count").textContent = `${page.total}${filter ? " for this wallpaper" : ""} · recorded since this version`
+  $("history-more").hidden = !page.hasMore
+  $("history-more").onclick = () => history(true)
+  if (!filter) {
+    const seen = new Map(S.historyRows.filter((e) => e.fingerprint).map((e) => [e.fingerprint, (e.image || e.wallpaper || "").split("/").pop() || "unknown image"]))
+    const keep = [...$("history-filter").options].slice(1).map((o) => [o.value, o.textContent])
+    $("history-filter").replaceChildren(new Option("all wallpapers", ""), ...[...new Map([...keep, ...seen])].map(([v, t]) => new Option(t, v)))
+  }
+  $("history-filter").onchange = () => history()
+  $("history-list").replaceChildren(...S.historyRows.map(historyRow))
+}
+
+function historyRow(e) {
+  const row = document.createElement("div")
+  row.className = "hrow" + (S.history === e.id ? " on" : "")
+  const when = new Date(e.at * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+  const thumb = Object.assign(document.createElement("span"), { className: "hthumb" + (e.image ? "" : " missing"), title: e.image || `${e.wallpaper} (not found here)` })
+  if (e.image) thumb.style.backgroundImage = `url("${img(e.image, 120)}")`
+  else thumb.textContent = "?"
+  const chips = (e.results.length ? e.results : e.targets.map((target) => ({ target, status: "unknown" })))
+    .map((r) => `<span class="s ${esc(r.status || "unknown")}" title="${esc(r.detail || "")}">${esc(r.target)} ${esc(r.status || "unknown")}</span>`).join(" ")
+  const outcome = { verified: "all targets verified", partial: "partly applied", none: "no target verified", unknown: "outcome not recorded (interrupted)" }[e.outcome] || e.outcome
+  const meta = document.createElement("div")
+  meta.className = "hmeta"
+  meta.innerHTML = `<b>${esc(when)}</b> · ${esc(outcome)}${e.current ? ` · <span class="hcur" title="This palette is what ${esc(e.liveDir)} holds now; apps reflect it only where their target verified">in theme files now</span>` : ""}`
+  const chipRow = Object.assign(document.createElement("div"), { className: "hchips", innerHTML: chips })
+  const actions = Object.assign(document.createElement("div"), { className: "hact" })
+  const load = Object.assign(document.createElement("button"), { className: "btn mini", textContent: "Load", title: "Load this palette as the draft (nothing is applied)" })
+  load.onclick = () => {
+    S.history = e.id
+    S.theme = S.scheme = S.restore = null
+    S.overrides = {}
+    if (e.image) S.image = e.image
+    markWall(); history(); schedule(0)
+  }
+  const compare = Object.assign(document.createElement("button"), { className: "btn mini", textContent: "Compare", title: "Load it and split the stage against the live theme" })
+  compare.onclick = () => { load.onclick(); if (!$("compare").classList.contains("on")) $("compare").click() }
+  const restore = Object.assign(document.createElement("button"), { className: "btn mini", textContent: "Restore…", title: "Load it, then Apply to the checked targets (plan and confirm first)" })
+  restore.disabled = !S.state.allowApply
+  restore.onclick = async () => { load.onclick(); clearTimeout(timer); await generate(); apply() }
+  actions.append(load, compare, restore)
+  row.append(thumb, bandEl(e.band || []), meta, chipRow, actions)
+  return row
 }

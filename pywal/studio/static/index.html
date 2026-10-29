@@ -101,7 +101,13 @@
         <button class="btn" id="probe">Re-check</button>
       </div>
       <pre class="log" id="log" hidden></pre>
-      <div class="undo" id="undo" hidden><h3>Undo · load the theme from before an Apply</h3><div id="undo-list"></div></div>
+      <div class="history" id="history" hidden>
+        <h3>Applied <span class="aux" id="history-count"></span></h3>
+        <div class="row"><select id="history-filter" aria-label="Filter applied history by wallpaper"><option value="">all wallpapers</option></select></div>
+        <div id="history-list"></div>
+        <button class="btn mini" id="history-more" hidden>Show older</button>
+      </div>
+      <div class="undo" id="undo" hidden><h3>Before-Apply backups · no outcome recorded</h3><div id="undo-list"></div></div>
     </section>
 
     <section>

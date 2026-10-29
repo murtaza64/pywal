@@ -95,7 +95,8 @@ def apply(studio, targets):
             results.append({"target": target, **handler(studio, draft)})
         except (OSError, subprocess.SubprocessError, ValueError) as e:
             results.append({"target": target, "status": "failed", "detail": str(e)})
-    return {"results": results, "probe": probe(studio.live_dir)}
+    # Same target list as /api/sync, so the page never shows targets this instance refuses.
+    return {"results": results, "probe": probe(studio.live_dir, studio.targets)}
 
 
 def apply_files(studio, draft):
@@ -113,7 +114,7 @@ def apply_files(studio, draft):
     link(draft["wallpaper"], os.path.join(live, "wallpaper"))
     written = read_json(os.path.join(live, "colors.json")) or {}
     ok = written.get("special", {}).get("background") == draft["special"]["background"]
-    return {"status": "verified" if ok else "mismatch", "detail": f"{len(names)} files; backup {backup}"}
+    return {"status": "verified" if ok else "mismatch", "detail": f"{len(names)} files; backup {backup}", "backup": os.path.basename(backup)}
 
 
 def apply_kitty(studio, draft):

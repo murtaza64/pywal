@@ -268,6 +268,90 @@ class TestStudio(unittest.TestCase):
         self.addCleanup(studio.close)
         self.assertFalse(studio.get("/api/state")["liveIsSystem"])
 
+    def test_each_apply_is_recorded_with_its_palette_targets_and_results(self):
+        studio = StudioServer("--allow-apply")
+        self.addCleanup(studio.close)
+        sweep = os.path.join(studio.walls, "sweep.png")
+        studio.post("/api/preview", {"image": sweep, "theme": {"source": "builtin", "name": "ashes"}})
+        studio.post("/api/apply", {"targets": ["files"]})
+        studio.post("/api/preview", {"image": sweep, "theme": {"source": "builtin", "name": "gruvbox"}})
+        # tmux has no server in the test environment: the attempt is recorded as partial, not as success.
+        res = studio.post("/api/apply", {"targets": ["files", "tmux"]})
+        self.assertIsNone(res["historyError"])
+        history = studio.get("/api/history")
+        self.assertEqual([(e["background"], e["outcome"], [r["status"] for r in e["results"]]) for e in history["entries"]],
+                         [("#282828", "partial", ["verified", "skipped"]), ("#1c2023", "verified", ["verified"])])
+        self.assertEqual([e["current"] for e in history["entries"]], [True, False])
+
+    def test_history_finds_a_renamed_wallpaper_by_content_and_marks_missing_ones(self):
+        studio = StudioServer("--allow-apply")
+        self.addCleanup(studio.close)
+        sweep = os.path.join(studio.walls, "sweep.png")
+        studio.post("/api/preview", {"image": sweep, "theme": {"source": "builtin", "name": "ashes"}})
+        studio.post("/api/apply", {"targets": ["files"]})
+        os.rename(sweep, os.path.join(studio.walls, "renamed.png"))
+        self.assertEqual(studio.get("/api/history")["entries"][0]["image"], os.path.join(studio.walls, "renamed.png"))
+        os.remove(os.path.join(studio.walls, "renamed.png"))
+        self.assertIsNone(studio.get("/api/history")["entries"][0]["image"])
+
+    def test_an_interrupted_attempt_stays_unknown(self):
+        studio = StudioServer("--allow-apply")
+        self.addCleanup(studio.close)
+        sweep = os.path.join(studio.walls, "sweep.png")
+        studio.post("/api/preview", {"image": sweep, "theme": {"source": "builtin", "name": "ashes"}})
+        studio.post("/api/apply", {"targets": ["files"]})
+        log = Path(studio.root, "backups", "history.jsonl")
+        attempt = json.loads(log.read_text().splitlines()[0])
+        log.write_text(log.read_text() + json.dumps({**attempt, "id": "20990101-000000", "at": attempt["at"] + 1}) + "\n")
+        self.assertEqual([e["outcome"] for e in studio.get("/api/history")["entries"]], ["unknown", "verified"])
+
+    def test_history_pages_and_filters_by_wallpaper_without_losing_older_matches(self):
+        studio = StudioServer("--allow-apply")
+        self.addCleanup(studio.close)
+        sweep, other = os.path.join(studio.walls, "sweep.png"), os.path.join(studio.walls, "other.png")
+        shutil.copy(os.path.join(studio.walls, "test.jpg"), other)
+        for image in (sweep, other, other):
+            studio.post("/api/preview", {"image": image, "theme": {"source": "builtin", "name": "ashes"}})
+            studio.post("/api/apply", {"targets": ["files"]})
+        first = studio.get("/api/history?limit=2")
+        self.assertEqual((len(first["entries"]), first["total"], first["hasMore"]), (2, 3, True))
+        print_ = studio.get("/api/history?limit=1&offset=2")["entries"][0]["fingerprint"]
+        only = studio.get(f"/api/history?fingerprint={urllib.parse.quote(print_)}")
+        self.assertEqual([e["wallpaper"] for e in only["entries"]], [sweep])
+
+    def test_only_the_newest_apply_of_the_live_palette_is_current(self):
+        studio = StudioServer("--allow-apply")
+        self.addCleanup(studio.close)
+        sweep = os.path.join(studio.walls, "sweep.png")
+        for name in ("ashes", "gruvbox", "ashes"):
+            studio.post("/api/preview", {"image": sweep, "theme": {"source": "builtin", "name": name}})
+            studio.post("/api/apply", {"targets": ["files"]})
+        self.assertEqual([e["current"] for e in studio.get("/api/history")["entries"]], [True, False, False])
+
+    def test_apply_reports_only_the_targets_this_instance_permits(self):
+        studio = StudioServer("--allow-apply", "--targets", "files")
+        self.addCleanup(studio.close)
+        studio.post("/api/preview", {"image": os.path.join(studio.walls, "sweep.png"), "theme": {"source": "builtin", "name": "ashes"}})
+        self.assertEqual([t["id"] for t in studio.post("/api/apply", {"targets": ["files"]})["probe"]["targets"]], ["files"])
+
+    def test_a_refused_apply_leaves_no_history(self):
+        studio = StudioServer("--allow-apply", "--targets", "files")
+        self.addCleanup(studio.close)
+        studio.post("/api/preview", {"image": os.path.join(studio.walls, "sweep.png"), "theme": {"source": "builtin", "name": "ashes"}})
+        with self.assertRaises(urllib.error.HTTPError):
+            studio.post("/api/apply", {"targets": ["kitty"]})
+        self.assertEqual(studio.get("/api/history")["total"], 0)
+
+    def test_an_applied_palette_loads_back_as_the_draft(self):
+        studio = StudioServer("--allow-apply")
+        self.addCleanup(studio.close)
+        sweep = os.path.join(studio.walls, "sweep.png")
+        studio.post("/api/preview", {"image": sweep, "theme": {"source": "builtin", "name": "gruvbox"}})
+        studio.post("/api/apply", {"targets": ["files"]})
+        entry = studio.get("/api/history")["entries"][0]
+        draft = studio.post("/api/preview", {"image": sweep, "history": entry["id"]})["colors"]
+        self.assertEqual(draft["special"]["background"], "#282828")
+
     def test_cross_site_form_posts_cannot_reach_apply(self):
         studio = StudioServer("--allow-apply")
         self.addCleanup(studio.close)
