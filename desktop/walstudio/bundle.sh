@@ -10,6 +10,8 @@ rm -rf "$APP" && mkdir -p "$OUT"
 ditto -x -k "$ZIP" "$OUT/.electron"
 mv "$OUT/.electron/Electron.app" "$APP" && rm -rf "$OUT/.electron"
 mkdir -p "$APP/Contents/Resources/app"
+# App icon (Electron's Info.plist already names electron.icns).
+cp "$HERE/icon/WalStudio.icns" "$APP/Contents/Resources/electron.icns"
 cp "$HERE"/{main.cjs,preload.cjs,package.json} "$APP/Contents/Resources/app/"
 # The bundle runs the Studio from this pywal checkout (WALSTUDIO_PYWAL overrides it).
 python3 - "$APP/Contents/Resources/app/package.json" "${HERE:h:h}" <<'PY'

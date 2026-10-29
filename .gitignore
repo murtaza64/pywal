@@ -8,3 +8,4 @@ build/*
 .vscode/*
 __pycache__/*
 desktop/walstudio/dist/
+desktop/walstudio/icon/WalStudio.iconset/
