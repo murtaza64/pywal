@@ -20,7 +20,7 @@ p, root = sys.argv[1], sys.argv[2]
 d = json.load(open(p)); d["walstudio"] = {"pywal": root}; json.dump(d, open(p, "w"), indent=2)
 PY
 PLIST=$APP/Contents/Info.plist
-/usr/libexec/PlistBuddy -c "Set :CFBundleName WalStudio" -c "Set :CFBundleDisplayName WalStudio" -c "Set :CFBundleIdentifier com.murtaza.walstudio" -c "Set :CFBundleShortVersionString 0.1.0" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName WalStudio" -c "Set :CFBundleDisplayName WalStudio" -c "Set :CFBundleIdentifier io.github.murtaza64.walstudio" -c "Set :CFBundleShortVersionString 0.1.0" "$PLIST"
 mv "$APP/Contents/MacOS/Electron" "$APP/Contents/MacOS/WalStudio"
 /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable WalStudio" "$PLIST"
 # Bundle contents changed after Electron's ad-hoc signature; re-sign ad hoc so macOS will launch it.

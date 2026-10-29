@@ -13,11 +13,20 @@ from glob import glob
 from pathlib import Path
 
 HOME = os.path.expanduser("~")
-ES_PORT_FILE = os.path.join(HOME, "Library/Application Support/Editspace/loopback-port")
-# es-desktop records the palette it now shows here (es-appearance-receipt/1); keyless, local, read-only.
-ES_RECEIPT = os.environ.get("PYWAL_STUDIO_ES_RECEIPT") or os.path.join(HOME, "Library/Application Support/Editspace/appearance-receipt.json")
+# Editspace (optional): a desktop app that follows colors.json and records what it shows in a receipt
+# (es-appearance-receipt/1). Detected only when its data folder exists; absent on most machines.
+ES_DATA = os.environ.get("PYWAL_STUDIO_ES_DATA") or os.path.join(HOME, "Library/Application Support/Editspace")
+ES_PORT_FILE = os.path.join(ES_DATA, "loopback-port")
+ES_RECEIPT = os.environ.get("PYWAL_STUDIO_ES_RECEIPT") or os.path.join(ES_DATA, "appearance-receipt.json")
 # es-desktop polls colors.json every 0.5s and debounces 0.3s.
 ES_RECEIPT_WAIT = float(os.environ.get("PYWAL_STUDIO_ES_WAIT", "5"))
+def tmux_conf():
+    """The tmux config to re-source: $PYWAL_STUDIO_TMUX_CONF, else the first that exists of the usual two."""
+    if os.environ.get("PYWAL_STUDIO_TMUX_CONF"):
+        return os.environ["PYWAL_STUDIO_TMUX_CONF"]
+    return next((p for p in (os.path.join(HOME, ".config/tmux/tmux.conf"), os.path.join(HOME, ".tmux.conf")) if os.path.isfile(p)), None)
+
+
 PYWALFOX_MANIFESTS = [
     os.path.join(HOME, "Library/Application Support/Mozilla/NativeMessagingHosts/pywalfox.json"),
     os.path.join(HOME, ".mozilla/native-messaging-hosts/pywalfox.json"),
@@ -25,9 +34,9 @@ PYWALFOX_MANIFESTS = [
 
 # Order is the Apply order: files first, because every other app reads them.
 TARGETS = {
-    "files": "Theme files (colors.json + templates: opencode, nvim, tmux, delta, jjui, hyprland, waybar)",
+    "files": "Theme files: colors.json and every template in the cache (apps that read them pick it up on reload)",
     "kitty": "kitty: colors, background tint and blurred wallpaper in every window",
-    "es-desktop": "Editspace app: follows colors.json on its own",
+    "es-desktop": "Editspace (optional): follows colors.json on its own",
     "pywalfox": "Firefox via pywalfox",
     "tmux": "tmux: re-source config",
     "system-wallpaper": "System wallpaper",
@@ -76,7 +85,7 @@ def plan(studio, targets):
         if target == "pywalfox":
             steps.append({"target": target, "runs": ["pywalfox update"]})
         if target == "tmux":
-            steps.append({"target": target, "runs": [f"tmux source-file {HOME}/.config/tmux/tmux.conf"]})
+            steps.append({"target": target, "runs": [f"tmux source-file {tmux_conf()}"] if tmux_conf() else [], "note": None if tmux_conf() else "no tmux config found"})
         if target == "system-wallpaper":
             steps.append({"target": target, "runs": [f"pywal.wallpaper.change({draft['wallpaper']})"]})
     return {"background": draft["special"]["background"], "wallpaper": draft["wallpaper"], "steps": steps}
@@ -172,7 +181,9 @@ def apply_pywalfox(studio, draft):
 def apply_tmux(studio, draft):
     if not shutil.which("tmux") or subprocess.run(["tmux", "has-session"], capture_output=True).returncode != 0:
         return {"status": "skipped", "detail": "no tmux server"}
-    out = subprocess.run(["tmux", "source-file", os.path.join(HOME, ".config/tmux/tmux.conf")], capture_output=True, text=True, timeout=20)
+    if not tmux_conf():
+        return {"status": "skipped", "detail": "no tmux config found (~/.config/tmux/tmux.conf or ~/.tmux.conf)"}
+    out = subprocess.run(["tmux", "source-file", tmux_conf()], capture_output=True, text=True, timeout=20)
     return {"status": "sent" if out.returncode == 0 else "failed", "detail": out.stderr.strip()[-300:]}
 
 
@@ -209,10 +220,13 @@ def probe_kitty():
         colors = dict(line.split(None, 1) for line in out.stdout.splitlines() if len(line.split(None, 1)) == 2)
         windows.append({"socket": sock, "background": colors.get("background"), "foreground": colors.get("foreground")})
     return {"available": bool(sockets), "default": True, "windows": windows,
-            "detail": f"{len(sockets)} instance(s): " + ", ".join(w["background"] or "?" for w in windows) if sockets else "no remote-control sockets in /tmp"}
+            "detail": f"{len(sockets)} instance(s): " + ", ".join(w["background"] or "?" for w in windows) if sockets
+            else "no remote-control socket: add `allow_remote_control socket-only` and `listen_on unix:/tmp/kitty-{kitty_pid}.sock` to kitty.conf"}
 
 
 def probe_es():
+    if not os.path.isdir(ES_DATA) and not os.environ.get("PYWAL_STUDIO_ES_RECEIPT"):
+        return {"available": False, "default": False, "detail": "not installed (optional)"}
     running = os.path.isfile(ES_PORT_FILE) and subprocess.run(["pgrep", "-x", "Editspace"], capture_output=True).returncode == 0
     receipt = read_json(ES_RECEIPT) if running or os.environ.get("PYWAL_STUDIO_ES_RECEIPT") else None
     if receipt:

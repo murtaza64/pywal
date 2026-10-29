@@ -125,7 +125,8 @@ class TestStudio(unittest.TestCase):
         self.assertEqual(live["special"]["background"], draft["special"]["background"])
         self.assertEqual(live["studio"], {"blur": 8.0, "tint": 0.7, "dim": 0.0})
         self.assertTrue(os.path.isfile(os.path.join(studio.live, "colors-kitty.conf")))
-        backups = os.listdir(os.path.join(studio.root, "backups"))
+        # Backup folders are named by time; history/ and history.jsonl sit beside them.
+        backups = [n for n in os.listdir(os.path.join(studio.root, "backups")) if n[:8].isdigit()]
         backup_colors = json.loads(Path(studio.root, "backups", backups[0], "colors.json").read_text())
         self.assertEqual(backup_colors["special"]["background"], "#010203")
 

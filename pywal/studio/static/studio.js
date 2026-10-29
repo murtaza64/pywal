@@ -168,7 +168,7 @@ function step(d) {
   pick(w[(i + d + w.length) % w.length].path)
 }
 
-// The dotfiles `wallpaper` wrapper: --backend colorthief --shading lighten --contrast 1.5, a fresh seed.
+// Defaults for a newly picked wallpaper (the author's `wallpaper` wrapper): shading lighten, contrast 1.5, a fresh seed.
 const WRAPPER = { shading: "lighten", contrast: 1.5 }
 
 // Generation knobs leave theme mode: the palette comes from the wallpaper again.
@@ -256,7 +256,7 @@ function flash(on) {
   if (on) { orig.hidden = false; orig.style.clipPath = "" } else layout()
 }
 
-// One themed desktop: wallpaper, kitty over blurred+darkened glass, Firefox and Editspace beside it.
+// One themed desktop: wallpaper, kitty over blurred+darkened glass, Firefox and an Editspace-style app beside it.
 function scene(layer, c, image, look, was) {
   let root = layer.firstElementChild
   if (!root) {
@@ -328,11 +328,11 @@ function tty(c) {
   const b = "font-weight:700"
   const line = (bgc, html) => `<span style="background:${bgc};display:inline-block;min-width:100%">${html}</span>`
   return [
-    `${k("color2", "murtaza")}${k("color8", "@")}${k("color6", "mini")} ${k("color4", "~/dotfiles", b)} ${k("color5", "(master)")} ${k("color15", "$")} ls`,
-    `${k("color4", "bin/", b)}  ${k("color4", "kitty/", b)}  ${k("color4", "nvim/", b)}  ${k("color2", "install.sh*", b)}  ${k("color6", "walcache@")}  README.md`,
-    `${k("color15", "$")} jj log -n3`,
-    `${k("color2", "@", b)}  ${k("color13", "lskxs", b)} ${k("color3", "murtaza")} ${k("color6", "2m")}  feat(studio): palette studio`,
-    `${k("color8", "◆")}  ${k("color5", "yvlqq")} ${k("color3", "murtaza")} ${k("color6", "6mo")} ${k("color5", "master", b)}  add jjui theme`,
+    `${k("color2", "you")}${k("color8", "@")}${k("color6", "laptop")} ${k("color4", "~/project", b)} ${k("color5", "(main)")} ${k("color15", "$")} ls`,
+    `${k("color4", "src/", b)}  ${k("color4", "docs/", b)}  ${k("color4", "tests/", b)}  ${k("color2", "build.sh*", b)}  ${k("color6", "cache@")}  README.md`,
+    `${k("color15", "$")} git log --oneline -n2`,
+    `${k("color3", "a1b2c3d", b)} ${k("color5", "(HEAD -> main)")} add palette preview`,
+    `${k("color3", "e4f5a6b")} tune terminal colours`,
     `${k("color15", "$")} git diff kitty.conf`,
     k("color8", "@@ -86,3 +86,3 @@ background_blur 16"),
     k("color1", "-background_tint 0.95"),
@@ -547,7 +547,7 @@ function log(text) {
   $("log").textContent = text
 }
 
-// ---- palette-art: chrome tint, tracks, ladder, floor, locate, sync bar ----
+// ---- Chrome tint, tracks, blur ladder, readability floor, locate, sync bar ----
 
 const VIVID = ["bright_red", "bright_green", "bright_yellow", "bright_blue", "bright_magenta", "bright_cyan"]
 const CHROME = ["--crust", "--mantle", "--base", "--surface0", "--surface1", "--surface2", "--text", "--subtext", "--faint", "--accent", "--ok", "--warn", "--bad"]

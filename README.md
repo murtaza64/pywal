@@ -1,14 +1,28 @@
-## This project is a fork of [pywal](https://github.com/dylanaraps/pywal)
-<h3 align="center"><img src="https://i.imgur.com/5WgMACe.gif" width="200px"></h3>
-<p align="center">Generate and change color-schemes on the fly.</p>
+# pywal (murtaza64 fork) and WalStudio
 
-<p align="center">
-<a href="./LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-</p>
+A fork of [pywal16](https://github.com/eylles/pywal16) that keeps generated colours on their ANSI meaning (colour 1 reads as red, 2 as green, …), adds tunable OKLCH palettes, a semantic palette for documents and apps (`palette.json`), and **Palette Studio / WalStudio**: a local UI to tune a palette on a mock desktop and apply it to chosen apps with Undo.
 
-This fork tries to associate the generated colors with the semantic ANSI colors. So it will try to set color 1 (red) to the generated color that's closest to red and so on for the rest of the colors. This helps keep errors, warnings, successes etc clear. (currently only hooked up for the colorthief backend)
+<p align="center"><img src="desktop/walstudio/icon/walstudio-1024.png" width="128" alt="WalStudio icon"></p>
 
-NOTE: the existing documentation is probably outdated in places, and certainly the parts about installing from pypi.
+- What changed from pywal16 (CLI, generation, templates): [docs/FORK.md](docs/FORK.md)
+- Palette Studio and the WalStudio app: [docs/walstudio.md](docs/walstudio.md)
+- The semantic palette contract: [docs/wal-palette.md](docs/wal-palette.md)
+
+## Install
+
+    git clone https://github.com/murtaza64/pywal && cd pywal
+    uv run -m pywal -i ~/Pictures/wallpaper.jpg   # generate and apply, as `wal` does
+    uv run -m pywal.studio                      # Palette Studio at http://127.0.0.1:4790/
+
+Needs Python 3.13+ ([uv](https://docs.astral.sh/uv/) installs it) and ImageMagick (`magick`). macOS is where this fork is used and tested; the CLI keeps pywal's Linux support but it is not tested here.
+
+## Licence and upstream
+
+MIT, see [LICENSE.md](LICENSE.md). Based on pywal by Dylan Araps and pywal16 by eylles and contributors. Everything in the upstream documentation below still applies except where [docs/FORK.md](docs/FORK.md) says otherwise (notably: one colour backend, fewer bundled templates).
+
+---
+
+The original pywal README follows.
 
 <img src="https://i.imgur.com/V1FuvJP.png" alt="img" align="right" width="400px">
 
