@@ -39,6 +39,7 @@ async function boot() {
   renderOriginal()
   refreshSync()
   undo()
+  desktop()
   await generate()
   if (location.hash === "#compare") $("compare").click()
 }
@@ -48,7 +49,9 @@ function fromLive() {
   S.restore = null
   S.scheme = null
   const live = S.live || {}
-  S.image = live.wallpaper || S.state.wallpapers[0]?.path || ""
+  // The desktop app opens on the image just chosen in its picker.
+  const picked = decodeURIComponent(location.hash.match(/^#pick=(.+)$/)?.[1] ?? "")
+  S.image = S.state.wallpapers.some((w) => w.path === picked) ? picked : live.wallpaper || S.state.wallpapers[0]?.path || ""
   S.settings = { ...S.state.defaults, ...(live.settings || {}) }
   if (S.settings.seed != null) S.settings.seed = String(S.settings.seed)
   S.look = { ...S.state.look }
@@ -743,4 +746,18 @@ async function undo() {
     }
     return btn
   }))
+}
+
+// WalStudio desktop app: choose wallpapers on this computer (the page has no other desktop access).
+async function desktop() {
+  if (!window.walstudio) return
+  const info = await window.walstudio.info()
+  const b = $("choose-walls")
+  b.hidden = false
+  b.title = `Wallpapers from ${info.wallpapers}. Choose a folder or one image on this computer.`
+  b.onclick = async () => {
+    const res = await window.walstudio.chooseWallpapers()
+    if (res?.error) log(res.error)
+  }
+  $("where").innerHTML = `${esc(`theme files ${info.liveDir} · wallpapers ${info.wallpapers}`)}<span class="pill live">apply: ${esc(info.targets.join(", "))}</span>`
 }
