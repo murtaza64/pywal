@@ -6,6 +6,7 @@ A fork of [pywal16](https://github.com/eylles/pywal16) that keeps generated colo
 
 - What changed from pywal16 (CLI, generation, templates): [docs/FORK.md](docs/FORK.md)
 - Palette Studio and the WalStudio app: [docs/walstudio.md](docs/walstudio.md)
+- No install: the [browser export](docs/walstudio.md#browser-export) makes a scheme and its files from one wallpaper, locally in the tab
 - The semantic palette contract: [docs/wal-palette.md](docs/wal-palette.md)
 
 ## Install

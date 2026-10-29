@@ -9,3 +9,4 @@ build/*
 __pycache__/*
 desktop/walstudio/dist/
 desktop/walstudio/icon/WalStudio.iconset/
+site/dist/

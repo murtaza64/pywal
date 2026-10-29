@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WalStudio export</title>
+  <meta name="description" content="Turn a wallpaper into a pywal colour scheme and its config files, in your browser.">
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="bar">
+    <img class="logo" src="icon.png" alt="">
+    <span class="mark"><b>WalStudio</b> export</span>
+    <span class="where">Runs in this tab. Your image is never uploaded.</span>
+    <span class="grow"></span>
+    <a class="link" href="https://github.com/murtaza64/pywal#walstudio">Desktop app</a>
+  </header>
+
+  <main class="studio">
+    <section class="stage" id="stage">
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept="image/*" hidden>
+        <span class="drop-title">Drop a wallpaper</span>
+        <span class="drop-sub">or click to choose. JPEG, PNG or WebP.</span>
+      </label>
+      <div class="view" id="view" hidden>
+        <img id="wall" alt="">
+        <div class="term" id="term" aria-label="Terminal preview">
+          <div><span class="c2">~/code</span> <span class="c5">main</span> <span class="c4">❯</span> wal -i <span id="term-name"></span></div>
+          <div><span class="c1">error</span> <span class="c3">warning</span> <span class="c2">ok</span> <span class="c4">info</span> <span class="c5">magic</span> <span class="c6">link</span></div>
+          <div class="dim">16 colours, ANSI-matched, OKLCH-tuned</div>
+          <div class="cells" id="cells"></div>
+          <div><span class="c4">❯</span> <span class="cursor"></span></div>
+        </div>
+      </div>
+      <div class="status" id="status" role="status"></div>
+    </section>
+
+    <aside class="rail">
+      <section>
+        <h2>Generate</h2>
+        <div class="seg" id="mode">
+          <button data-mode="dark" class="on">Dark</button>
+          <button data-mode="light">Light</button>
+        </div>
+        <label class="ctl"><span>Saturate</span><input type="range" id="saturate" min="-100" max="100" value="0"><output for="saturate"></output></label>
+        <label class="ctl"><span>Brightness</span><input type="range" id="brightness" min="-100" max="100" value="0"><output for="brightness"></output></label>
+        <label class="ctl"><span>Contrast</span><input type="range" id="contrast" min="0" max="7" step="0.5" value="2"><output for="contrast"></output></label>
+        <label class="ctl"><span>Shading</span><select id="shading"><option>lighten</option><option>darken</option></select></label>
+        <label class="ctl"><span>Choose</span><select id="choose">
+          <option>backend</option><option>ansi</option><option>brightness</option><option>saturation</option>
+          <option>ansi-brightness</option><option>ansi-saturation</option><option>ansi-shuffle</option><option>random</option>
+        </select></label>
+        <label class="ctl"><span>Background</span><select id="bg_strategy"><option>backend</option><option>average</option></select></label>
+        <label class="ctl seed"><span>Seed</span><input type="text" id="seed" inputmode="numeric" placeholder="random"><button class="btn mini" id="reroll" title="New seed">↻</button></label>
+      </section>
+
+      <section>
+        <h2>Palette <span class="aux" id="checks"></span></h2>
+        <div class="swatches" id="swatches"><p class="empty">No palette yet.</p></div>
+      </section>
+
+      <section>
+        <h2>Export</h2>
+        <button class="btn btn-primary wide" id="zip" disabled>Download all (.zip)</button>
+        <ul class="files" id="files"></ul>
+        <p class="note">Unzip into <code>~/.cache/wal</code>, or pick single files for your apps.</p>
+      </section>
+
+      <section>
+        <h2>Same scheme on the desktop</h2>
+        <pre class="cmd" id="cmd">wal -i wallpaper.jpg</pre>
+        <button class="btn mini" id="copy-cmd">Copy</button>
+        <p class="note">This page runs the fork's engine with a pure-Python quantizer and Pillow. The desktop uses a Rust quantizer and ImageMagick, so a few colours can land in different slots.</p>
+      </section>
+    </aside>
+  </main>
+</body>
+</html>

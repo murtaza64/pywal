@@ -12,6 +12,8 @@ Fork of [eylles/pywal16](https://github.com/eylles/pywal16) (itself a fork of [d
 
 ## Command line
 
+![wal output: palette, ANSI slots and the settings used](img/cli.png)
+
 New or changed flags (see `uv run -m pywal -h`):
 
 | Flag | Change |
