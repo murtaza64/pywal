@@ -53,6 +53,8 @@ Not supported: detecting or theming arbitrary installed apps; Apply on Linux/Win
 
 The app runs its own Studio backend on a free loopback port and stops it on quit. File > Choose Wallpapers… picks a folder or an image on your Mac. By default Apply writes a private profile inside the app (your apps keep their theme); the Sync mode line switches to the live theme (`~/.cache/wal`) after a confirmation. Settings: `~/Library/Application Support/WalStudio/config.json` (`pywal`, `wallpapers`, `liveDir`, `targets`). The app is unsigned: right-click > Open the first time.
 
+From a release: clone this fork to `~/pywal` (or set `pywal` in the config), unzip `WalStudio.app` from the release, then right-click > Open. It needs `uv` and ImageMagick as above.
+
 ## Browser export
 
 A static page that turns one wallpaper into a scheme and its files, without installing anything. Export only: no Apply, no upload.
@@ -65,6 +67,7 @@ A static page that turns one wallpaper into a scheme and its files, without inst
 - Runs the fork's palette pipeline and exporters in [Pyodide](https://pyodide.org) inside a Web Worker. The image is read into the tab's memory and never sent anywhere; the page loads Pyodide and Pillow from jsDelivr.
 - Controls: dark/light, saturate, brightness, contrast, shading, choose, background strategy, seed. Output: `colors.json`, `palette.json/css` and every template, singly or as `wal.zip` (unzip into `~/.cache/wal`).
 - Shows the equivalent `wal` command, with the seed.
+- Hosting: any static host. Pyodide needs eval and WebAssembly, and Chrome applies the page's policy to the worker and its module imports, so one policy covers both: `default-src 'none'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-eval' 'wasm-unsafe-eval'; worker-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`. Requests go only to the site and cdn.jsdelivr.net.
 - Approximation: the desktop uses `modern_colorthief` (Rust) and ImageMagick; the browser uses the pure-Python colorthief port and Pillow. Across 46 test wallpapers a median 84% of slots matched the desktop within 12/255 per channel; small quantizer differences can move a colour to another slot.
 
 ## Files and privacy

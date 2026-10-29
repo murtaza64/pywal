@@ -18,6 +18,8 @@ Needs: this pywal checkout, `uv`, ImageMagick (`/opt/homebrew/bin/magick`). Elec
 
 Apps opened from Finder do not see shell variables: put settings in `~/Library/Application Support/WalStudio/config.json`, e.g. `{"pywal": "~/pywal"}`.
 
-After copying the app to another Mac it is quarantined and unsigned: right-click > Open once, or `xattr -dr com.apple.quarantine WalStudio.app`.
+The app is unsigned: the first time, right-click > Open and confirm.
+
+Release build (records `~/pywal` rather than this checkout): `WALSTUDIO_BUNDLE_PYWAL='~/pywal' desktop/walstudio/bundle.sh`. Users clone the fork to `~/pywal`, or set `pywal` in config.json.
 
 Overrides: `WALSTUDIO_PYWAL`, `WALSTUDIO_PYTHON`, `WALSTUDIO_WALLPAPERS`, `WALSTUDIO_LIVE_DIR`, `WALSTUDIO_TARGETS`, `WALSTUDIO_ES_RECEIPT`.
