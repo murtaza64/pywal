@@ -26,6 +26,10 @@ def main():
         action="store_true",
         help="Enable Apply. Without it the studio is preview-only and never touches the live theme.",
     )
+    parser.add_argument(
+        "--targets",
+        help="Comma-separated sync targets this instance may plan or apply (e.g. files,es-desktop). Others are refused by the server. Default: all.",
+    )
     args = parser.parse_args()
 
     # Every pywal module resolves its cache through PYWAL_CACHE_DIR at call time; pointing it at
@@ -44,6 +48,7 @@ def main():
         scratch=os.path.abspath(args.scratch),
         backups=os.path.abspath(os.path.expanduser(args.backups)),
         allow_apply=args.allow_apply,
+        targets=[t.strip() for t in args.targets.split(",") if t.strip()] if args.targets else None,
     )
 
 

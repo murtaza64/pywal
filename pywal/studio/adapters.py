@@ -35,7 +35,16 @@ TARGETS = {
 DEFAULT_TARGETS = ["files", "kitty", "es-desktop", "pywalfox", "tmux"]
 
 
-def probe(live_dir):
+def probe(live_dir, permitted=None):
+    probes = {
+        "files": lambda: probe_files(live_dir),
+        "kitty": probe_kitty,
+        "es-desktop": probe_es,
+        "pywalfox": probe_pywalfox,
+        "tmux": probe_tmux,
+        "system-wallpaper": lambda: {"available": True, "default": False,
+                                     "detail": "Off by default: on macOS pywal rewrites the wallpaper store and restarts WallpaperAgent."},
+    }
     live = read_json(os.path.join(live_dir, "colors.json")) or {}
     return {
         "live": {
@@ -43,15 +52,8 @@ def probe(live_dir):
             "wallpaper": live.get("wallpaper"),
             "mtime": mtime(os.path.join(live_dir, "colors.json")),
         },
-        "targets": [
-            {"id": "files", "label": TARGETS["files"], **probe_files(live_dir)},
-            {"id": "kitty", "label": TARGETS["kitty"], **probe_kitty()},
-            {"id": "es-desktop", "label": TARGETS["es-desktop"], **probe_es()},
-            {"id": "pywalfox", "label": TARGETS["pywalfox"], **probe_pywalfox()},
-            {"id": "tmux", "label": TARGETS["tmux"], **probe_tmux()},
-            {"id": "system-wallpaper", "label": TARGETS["system-wallpaper"], "available": True, "default": False,
-             "detail": "Off by default: on macOS pywal rewrites the wallpaper store and restarts WallpaperAgent."},
-        ],
+        # Targets outside this instance's --targets are not even probed.
+        "targets": [{"id": t, "label": TARGETS[t], **fn()} for t, fn in probes.items() if not permitted or t in permitted],
     }
 
 

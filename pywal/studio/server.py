@@ -34,19 +34,21 @@ THEME_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
 ANSI_NAMES = ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
 
 
-def serve(host, port, live_dir, wallpapers, scratch, backups, allow_apply):
+def serve(host, port, live_dir, wallpapers, scratch, backups, allow_apply, targets=None):
     util.setup_logging(level=logging.INFO)
-    studio = Studio(live_dir=live_dir, wallpapers=wallpapers, scratch=scratch, backups=backups, allow_apply=allow_apply)
+    studio = Studio(live_dir=live_dir, wallpapers=wallpapers, scratch=scratch, backups=backups, allow_apply=allow_apply, targets=targets)
     handler = type("Handler", (Handler,), {"studio": studio})
     server = ThreadingHTTPServer((host, port), handler)
-    print(f"Palette Studio: http://{host}:{port}/  live={live_dir}  apply={'on' if allow_apply else 'off'}", flush=True)
+    print(f"Palette Studio: http://{host}:{port}/  live={live_dir}  apply={'on' if allow_apply else 'off'}  targets={','.join(targets) if targets else 'all'}", flush=True)
     if not (shutil.which("magick") or shutil.which("convert")):
         print("WARNING: ImageMagick (magick) is not on PATH; generated previews will fail. Add its directory to PATH.", flush=True)
     server.serve_forever()
 
 
 class Studio:
-    def __init__(self, live_dir, wallpapers, scratch, backups, allow_apply):
+    def __init__(self, live_dir, wallpapers, scratch, backups, allow_apply, targets=None):
+        # Sync targets this instance may plan or apply; None = every adapter.
+        self.targets = targets
         self.live_dir = live_dir
         self.backups = backups
         self.wallpapers = wallpapers
@@ -64,6 +66,7 @@ class Studio:
             "host": socket.gethostname(),
             "platform": platform.system(),
             "allowApply": self.allow_apply,
+            "targets": self.targets,
             "liveDir": display(self.live_dir),
             "live": live,
             "look": {**DEFAULT_LOOK, **(live or {}).get("studio", {})},
@@ -155,6 +158,16 @@ class Studio:
         if not os.path.isfile(path):
             raise ValueError(f"backup {name} has no colors.json")
         return pywal_theme.parse(path)
+
+    def permitted(self, requested):
+        """The requested targets, refusing any outside this instance's --targets."""
+        if not self.targets:
+            return requested
+        requested = requested or self.targets
+        refused = [t for t in requested if t not in self.targets]
+        if refused:
+            raise ValueError(f"targets not permitted on this instance: {', '.join(refused)}")
+        return requested
 
     def themes(self):
         roots = {"user": CONF_DIR, "builtin": MODULE_DIR}
@@ -305,7 +318,7 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/api/schemes":
                 return self.json(studio.schemes())
             if url.path == "/api/sync":
-                return self.json(adapters.probe(studio.live_dir))
+                return self.json(adapters.probe(studio.live_dir, studio.targets))
             return self.error(404, "not found")
         except ValueError as e:
             return self.error(400, str(e))
@@ -333,12 +346,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(studio.save_theme(body))
             if url.path == "/api/plan":
                 studio.set_look(body.get("look"))
-                return self.json(adapters.plan(studio, body.get("targets")))
+                return self.json(adapters.plan(studio, studio.permitted(body.get("targets"))))
             if url.path == "/api/apply":
                 if not studio.allow_apply:
                     return self.error(403, "Apply is disabled; restart with --allow-apply")
                 studio.set_look(body.get("look"))
-                return self.json(adapters.apply(studio, body.get("targets")))
+                return self.json(adapters.apply(studio, studio.permitted(body.get("targets"))))
             return self.error(404, "not found")
         except (ValueError, AssertionError) as e:
             # The palette engine signals unusable images (e.g. too grey) with assertions.

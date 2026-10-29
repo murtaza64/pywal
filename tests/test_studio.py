@@ -241,6 +241,19 @@ class TestStudio(unittest.TestCase):
         self.assertEqual(res["results"][0]["status"], "verified")
         self.assertEqual(json.loads(Path(studio.live, "colors.json").read_text())["colors"]["red"], first["colors"]["red"])
 
+    def test_targets_flag_refuses_other_apps_on_the_server(self):
+        studio = StudioServer("--allow-apply", "--targets", "files,es-desktop")
+        self.addCleanup(studio.close)
+        self.assertEqual([t["id"] for t in studio.get("/api/sync")["targets"]], ["files", "es-desktop"])
+        studio.post("/api/preview", {"image": os.path.join(studio.walls, "sweep.png"), "theme": {"source": "builtin", "name": "ashes"}})
+        before = studio.live_snapshot()
+        for targets in (["kitty"], ["files", "system-wallpaper"], ["pywalfox"], ["tmux"]):
+            with self.assertRaises(urllib.error.HTTPError) as err:
+                studio.post("/api/apply", {"targets": targets})
+            self.assertEqual(err.exception.code, 400)
+        self.assertEqual(studio.live_snapshot(), before)
+        self.assertEqual(studio.post("/api/apply", {"targets": ["files"]})["results"][0]["status"], "verified")
+
     def test_cross_site_form_posts_cannot_reach_apply(self):
         studio = StudioServer("--allow-apply")
         self.addCleanup(studio.close)
