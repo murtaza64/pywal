@@ -37,8 +37,13 @@ ANSI_NAMES = ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "whi
 def serve(host, port, live_dir, wallpapers, scratch, backups, allow_apply, targets=None):
     util.setup_logging(level=logging.INFO)
     studio = Studio(live_dir=live_dir, wallpapers=wallpapers, scratch=scratch, backups=backups, allow_apply=allow_apply, targets=targets)
+    # One worker makes the strip's thumbnails ahead of the browser; dozens of concurrent ImageMagick
+    # runs on first open would otherwise outlast a proxy's timeout.
+    threading.Thread(target=studio.warm_thumbs, daemon=True).start()
     handler = type("Handler", (Handler,), {"studio": studio})
-    server = ThreadingHTTPServer((host, port), handler)
+    # A page opens dozens of thumbnail requests at once; socketserver's default listen backlog (5)
+    # drops the overflow, which a fronting proxy reports as 502s.
+    server = type("Server", (ThreadingHTTPServer,), {"request_queue_size": 128})((host, port), handler)
     print(f"Palette Studio: http://{host}:{port}/  live={live_dir}  apply={'on' if allow_apply else 'off'}  targets={','.join(targets) if targets else 'all'}", flush=True)
     if not (shutil.which("magick") or shutil.which("convert")):
         print("WARNING: ImageMagick (magick) is not on PATH; generated previews will fail. Add its directory to PATH.", flush=True)
@@ -237,6 +242,13 @@ class Studio:
             self.last["studio"] = clean_look(look)
             with open(os.path.join(self.preview_dir, "colors.json"), "w") as f:
                 json.dump(self.last, f, indent=4)
+
+    def warm_thumbs(self):
+        for p in self.images():
+            try:
+                self.thumb(str(p), 240)
+            except OSError:
+                logging.exception("thumbnail failed for %s", p)
 
     def thumb(self, path, width):
         """Downscaled copy for the browser; originals can be 4K+."""
