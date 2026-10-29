@@ -1,5 +1,6 @@
 """Generate candidate colors using ColorThief."""
 
+import io
 import logging
 import sys
 import colorsys
@@ -10,6 +11,30 @@ from .print import palette_absolute
 from .color import Color
 from .match import circle_distance, circle_midpoint
 from .args import ARGS
+
+def get_palette(img: str, color_count: int) -> list[RGB]:
+    """Quantize `img` to at most `color_count` colours (MMCQ)."""
+    try:
+        from modern_colorthief import get_palette as quantize
+    except ImportError:
+        # Pyodide (the browser export) has no Rust wheel; the pure-Python port runs the same algorithm,
+        # so results approximate the desktop engine rather than match it.
+        from colorthief import ColorThief
+        return ColorThief(img).get_palette(color_count=color_count, quality=10)
+    return quantize(rgb_source(img), color_count=color_count)
+
+
+def rgb_source(img: str) -> str | bytes:
+    """The image as modern_colorthief can read it: it panics on greyscale (L, LA, 1) pixel formats."""
+    from PIL import Image
+
+    with Image.open(img) as im:
+        if im.mode in ("RGB", "RGBA", "P"):
+            return img
+        buf = io.BytesIO()
+        im.convert("RGBA" if "A" in im.getbands() else "RGB").save(buf, "PNG")
+        return buf.getvalue()
+
 
 def get_colored_square(r, g, b):
     """Return a colored square for terminal output."""
@@ -35,13 +60,11 @@ def sorted_by_value(colors: list[Color]) -> list[Color]:
 
 def gen_colors(img: str) -> list[Color]:
     """Loop until >=8 non-greyish colors are generated (iterative strategy)."""
-    from modern_colorthief import get_palette as color_cmd
-
     for i in range(0, 10, 1):
         palette_size = 8 + i
         logging.debug(f"ColorThief iteration {i + 1} (requesting {palette_size} colors):")
         
-        raw_colors_rgb: list[RGB] = color_cmd(img, color_count=palette_size)
+        raw_colors_rgb: list[RGB] = get_palette(img, color_count=palette_size)
         raw_colors = [Color.from_rgb8(*rgb) for rgb in raw_colors_rgb]
         logging.debug(f"Raw colors from ColorThief ({len(raw_colors_rgb)} colors):")
         palette_absolute(raw_colors)
@@ -66,13 +89,11 @@ def gen_colors_brightness(img: str, initial: int | None = None) -> list[Color]:
     Returns a full list of candidate colors; background/foreground selection is
     handled by the palette pipeline.
     """
-    from modern_colorthief import get_palette as color_cmd
-    
     logging.debug("Using brightness strategy - requesting 16 colors immediately:")
     
     # Get 16 colors directly
     color_count = initial or ARGS.subtractive_initial or 16
-    raw_colors_rgb: list[RGB] = color_cmd(img, color_count=color_count)
+    raw_colors_rgb: list[RGB] = get_palette(img, color_count=color_count)
     raw_colors = [Color.from_rgb8(*rgb) for rgb in raw_colors_rgb]
     raw_colors_hex = [c.hex_color for c in raw_colors]
     
