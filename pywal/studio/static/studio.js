@@ -71,13 +71,14 @@ function syncControls() {
   $("seed").value = s.seed ?? ""
   $("blur").value = S.look.blur; showOut("blur", S.look.blur)
   $("tint").value = S.look.tint; showOut("tint", S.look.tint)
+  $("dim").value = S.look.dim ?? 0; showOut("dim", S.look.dim ?? 0)
   for (const b of $("mode").children) b.classList.toggle("on", (b.dataset.v === "light") === !!s.light)
   markWall()
 }
 
 function showOut(id, v) {
   const out = document.querySelector(`output[for=${id}]`)
-  if (out) out.textContent = v == null || v === "" ? "auto" : Number(v).toFixed(id.startsWith("bg_") ? 3 : id === "tint" || id === "contrast" ? 2 : 0)
+  if (out) out.textContent = v == null || v === "" ? "auto" : Number(v).toFixed(id.startsWith("bg_") ? 3 : id === "tint" || id === "contrast" || id === "dim" ? 2 : 0)
 }
 
 function bind() {
@@ -89,7 +90,7 @@ function bind() {
   $("theme-filter").addEventListener("input", renderThemes)
   $("theme-save").onclick = saveTheme
   $("mode").onclick = (e) => { const v = e.target.dataset?.v; if (!v) return; S.settings.light = v === "light"; syncControls(); schedule(0) }
-  for (const k of ["blur", "tint"]) $(k).addEventListener("input", (e) => { S.look[k] = Number(e.target.value); showOut(k, S.look[k]); renderDraft() })
+  for (const k of ["blur", "tint", "dim"]) $(k).addEventListener("input", (e) => { S.look[k] = Number(e.target.value); showOut(k, S.look[k]); renderDraft() })
   for (const k of RANGE) $(k).addEventListener("input", tracks)
   $("exact").onchange = () => { renderDraft(); renderOriginal() }
   $("chrome").onclick = () => { localStorage.walChrome = localStorage.walChrome === "neutral" ? "tinted" : "neutral"; chrome() }
@@ -272,6 +273,7 @@ function scene(layer, c, image, look, was) {
   const tint = sc.querySelector(".tint")
   tint.style.background = bg
   tint.style.opacity = look.tint
+  sc.querySelector(".dimmer").style.opacity = look.dim ?? 0
   const req = (wp.dataset.req = `${image}|${look.blur}|${exact}`)
   sizeOf(image).then(async (size) => {
     // kitty blurs the full-resolution file (sigma = look.blur), then cover-scales it to the window; match that scale here.
@@ -279,7 +281,8 @@ function scene(layer, c, image, look, was) {
     const px = look.blur * scale
     if (exact || !CAN_FILTER) {
       wp.style.inset = exact ? "0" : "-60px"
-      wp.style.backgroundImage = `url("${exact ? `/api/blur?path=${encodeURIComponent(image)}&sigma=${look.blur}&w=1600` : img(image, 1600)}")`
+      wp.style.backgroundImage = `url("${exact ? `/api/blur?path=${encodeURIComponent(image)}&sigma=${look.blur}&dim=${look.dim ?? 0}&w=1600` : img(image, 1600)}")`
+      if (exact) sc.querySelector(".dimmer").style.opacity = 0
       wp.style.filter = exact ? "" : `blur(${px.toFixed(2)}px)`
       ladder.style.opacity = 0
       return
@@ -300,7 +303,7 @@ function scene(layer, c, image, look, was) {
   tabs.forEach((t, i) => { t.style.background = i === 0 ? fg : bg; t.style.color = i === 0 ? bg : fg })
   sc.querySelector(".tty").innerHTML = tty(c)
   fox(sc.querySelector(".fox"), c)
-  es(sc.querySelector(".es"), c)
+  es(sc.querySelector(".es"), c, image, look)
   swatches(sc.querySelector(".swatches"), c, was, layer.id === "layer-draft")
 }
 
@@ -357,11 +360,22 @@ function fox(el, c) {
   url.querySelector("i").style.background = c.color2
 }
 
-function es(el, c) {
+// Editspace's session page: transcript and composer sit on the blurred wallpaper under a --base scrim
+// (es-app appearance.css: 48% at the top to 78% at the bottom), dimmed like the terminal glass.
+function es(el, c, image, look) {
   const v = themeVars(c)
+  el.querySelector(".es-glass").hidden = !v
   if (!v) { el.style.background = "#1e1e2e"; el.style.color = "#cdd6f4"; el.title = "es-app keeps its default theme for light palettes"; return }
   el.title = ""
   el.style.background = v["--base"]
+  const wp = el.querySelector(".es-wp")
+  wp.style.backgroundImage = `url("${img(image, 1600)}")`
+  sizeOf(image).then((size) => {
+    const scale = Math.max(el.clientWidth / size.w, el.clientHeight / size.h)
+    wp.style.filter = `blur(${(look.blur * scale).toFixed(2)}px)`
+  })
+  el.querySelector(".es-dimmer").style.opacity = look.dim ?? 0
+  el.querySelector(".es-scrim").style.background = `linear-gradient(${v["--base"]}7a, ${v["--base"]}c7)`
   el.style.color = v["--text"]
   const nav = el.querySelector(".es-nav")
   nav.style.background = v["--crust"]
@@ -439,8 +453,29 @@ function outputs(names) {
 
 async function refreshSync() {
   S.sync = await api("/api/sync").catch((e) => ({ targets: [], error: e.message }))
-  S.targets ??= new Set(S.sync.targets.filter((t) => t.default).map((t) => t.id))
+  // Only targets this instance may apply, available now, and on by default; the system wallpaper never starts ticked.
+  const permitted = (id) => !S.state.targets || S.state.targets.includes(id)
+  S.targets ??= new Set(S.sync.targets.filter((t) => t.default && t.available && permitted(t.id) && t.id !== "system-wallpaper").map((t) => t.id))
+  for (const id of [...S.targets]) if (!permitted(id)) S.targets.delete(id)
   targets()
+  modeLine()
+}
+
+// Where Apply writes: the real wal cache (apps change) or a private profile (nothing outside the studio changes).
+function modeLine() {
+  const live = S.state.liveIsSystem
+  const el = $("mode-line")
+  el.dataset.s = live ? "live" : "preview"
+  el.innerHTML = live
+    ? `<b>Live theme</b> · Apply writes ${esc(S.state.liveDir)}; checked apps change`
+    : `<b>Private profile</b> · Apply writes ${esc(S.state.liveDir)} only; kitty, Editspace, Firefox and tmux keep their theme`
+  if (!window.walstudio?.setMode) return
+  const b = Object.assign(document.createElement("button"), { className: "btn mini", textContent: live ? "Use private profile" : "Use live theme…" })
+  b.onclick = async () => {
+    if (!live && !confirm("Switch to the live theme?\n\nApply will write ~/.cache/wal and update kitty, Editspace, Firefox (pywalfox) and tmux. The system wallpaper stays off. Each Apply keeps a backup for Undo.")) return
+    await window.walstudio.setMode(live ? "preview" : "live")
+  }
+  el.append(b)
 }
 
 function targets(results = S.results) {
@@ -461,7 +496,10 @@ async function plan() {
     const p = await api("/api/plan", { targets: [...S.targets], look: effLook() })
     log(planText(p))
     return p
-  } catch (e) { log(e.message) }
+  } catch (e) {
+    log(e.message)
+    status("bad", `Apply blocked, nothing was written: ${e.message}`)
+  }
 }
 
 const planText = (p) => [`draft background ${p.background}`, `wallpaper ${p.wallpaper}`, "", ...p.steps.flatMap((s) => [`[${s.target}]`, ...(s.writes || []).map((w) => `  write ${w}`), ...(s.runs || []).map((r) => `  run   ${r}`), ...(s.note ? [`  ${s.note}`] : []), ...(s.backup ? [`  backup ${s.backup}`] : [])])].join("\n")
@@ -469,7 +507,8 @@ const planText = (p) => [`draft background ${p.background}`, `wallpaper ${p.wall
 async function apply() {
   if (!S.state.allowApply) return
   const p = await plan()
-  if (!p || !confirm(`Apply the draft to the live theme?\n\n${planText(p)}`)) return
+  const where = S.state.liveIsSystem ? "the live theme (checked apps change)" : "WalStudio's private profile (your apps keep their theme)"
+  if (!p || !confirm(`Apply the draft to ${where}?\n\n${planText(p)}`)) return
   try {
     const res = await api("/api/apply", { targets: [...S.targets], look: effLook() })
     const by = Object.fromEntries(res.results.map((r) => [r.target, r]))
@@ -755,6 +794,7 @@ async function desktop() {
   const b = $("choose-walls")
   b.hidden = false
   b.title = `Wallpapers from ${info.wallpapers}. Choose a folder or one image on this computer.`
+  $("undo").querySelector("h3").textContent = `Undo · ${info.mode === "live" ? "live theme" : "private profile"} · load the theme from before an Apply`
   b.onclick = async () => {
     const res = await window.walstudio.chooseWallpapers()
     if (res?.error) log(res.error)

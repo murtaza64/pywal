@@ -27,7 +27,7 @@ from . import adapters
 STATIC = Path(__file__).parent / "static"
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff"}
 # Defaults mirror the dotfiles kitty setup: `magick -blur 0x16` and `background_tint 0.95`.
-DEFAULT_LOOK = {"blur": 16, "tint": 0.95}
+DEFAULT_LOOK = {"blur": 16, "tint": 0.95, "dim": 0.0}
 # How often palette event streams check the live cache (one stat each).
 PALETTE_POLL = 1.0
 THEME_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
@@ -73,6 +73,8 @@ class Studio:
             "allowApply": self.allow_apply,
             "targets": self.targets,
             "liveDir": display(self.live_dir),
+            # The live wal cache is what kitty, Editspace, Firefox and tmux read; anything else is a private profile.
+            "liveIsSystem": os.path.realpath(self.live_dir) == os.path.realpath(os.path.expanduser("~/.cache/wal")),
             "live": live,
             "look": {**DEFAULT_LOOK, **(live or {}).get("studio", {})},
             "defaults": generation_defaults(),
@@ -259,13 +261,14 @@ class Studio:
             run(["magick", path, "-auto-orient", "-thumbnail", f"{width}x", "-quality", "86", out])
         return out if os.path.isfile(out) else path
 
-    def blurred(self, path, sigma):
-        """The exact blurred file Apply would hand to kitty, rendered into scratch."""
+    def blurred(self, path, sigma, dim=0.0):
+        """The exact blurred (and dimmed) file Apply would hand to kitty, rendered into scratch."""
         if not shutil.which("magick"):
             raise ValueError("ImageMagick (magick) is required to render the blurred wallpaper")
-        out = self.scratch_file("blurred", path, f"s{sigma:g}", Path(path).suffix or ".png")
+        out = self.scratch_file("blurred", path, f"s{sigma:g}" + (f"-d{dim:g}" if dim else ""), Path(path).suffix or ".png")
         if not os.path.isfile(out):
-            run(["magick", path, "-blur", f"0x{sigma:g}", out])
+            # Dim mixes the image toward black, the same as the preview's black overlay at that opacity.
+            run(["magick", path, "-blur", f"0x{sigma:g}", *(["-fill", "black", "-colorize", f"{dim * 100:g}%"] if dim else []), out])
         return out
 
     def scratch_file(self, kind, path, variant, ext):
@@ -314,7 +317,7 @@ class Handler(BaseHTTPRequestHandler):
                 path = query.get("path", "")
                 if not studio.allowed_image(path):
                     return self.error(403, "image not allowed")
-                out = studio.blurred(path, float(query.get("sigma", DEFAULT_LOOK["blur"])))
+                out = studio.blurred(path, float(query.get("sigma", DEFAULT_LOOK["blur"])), max(0.0, min(float(query.get("dim", 0) or 0), 0.8)))
                 width = int(query.get("w", "0") or 0)
                 return self.file(Path(studio.thumb(out, width) if width else out), cache=True)
             if url.path == "/api/output":
@@ -509,7 +512,8 @@ def apply_overrides(colors, overrides):
 def clean_look(look):
     blur = float(look.get("blur", DEFAULT_LOOK["blur"]))
     tint = float(look.get("tint", DEFAULT_LOOK["tint"]))
-    return {"blur": max(0.0, min(blur, 64.0)), "tint": max(0.0, min(tint, 1.0))}
+    dim = float(look.get("dim", DEFAULT_LOOK["dim"]))
+    return {"blur": max(0.0, min(blur, 64.0)), "tint": max(0.0, min(tint, 1.0)), "dim": max(0.0, min(dim, 0.8))}
 
 
 def read_json(path):

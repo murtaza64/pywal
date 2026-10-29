@@ -190,3 +190,18 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 3px; bord
 .draft-status { position: absolute; left: 12px; top: 10px; z-index: 6; max-width: calc(100% - 24px); padding: 3px 10px; font-size: 11px; background: rgba(0,0,0,.72); color: #fff; border-left: 3px solid var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .draft-status[data-s="busy"] { border-left-color: var(--warn); }
 .draft-status[data-s="bad"] { border-left-color: var(--bad); white-space: normal; }
+
+/* Wallpaper glass: Dim is a black overlay (Apply bakes the same mix into wallpaper.blurred). */
+.glass .dimmer { position: absolute; inset: 0; background: #000; opacity: 0; }
+.es { position: relative; isolation: isolate; }
+.es-glass { position: absolute; inset: 0 0 0 112px; z-index: -1; overflow: hidden; }
+.es-glass > div { position: absolute; inset: 0; }
+.es-wp { inset: -40px !important; background: center / cover no-repeat; }
+.es-dimmer { background: #000; opacity: 0; }
+.es-body { position: relative; }
+
+/* Sync mode line: where Apply writes. */
+.mode { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 8px; padding: 6px 8px; font-size: 11px; color: var(--subtext); border: 1px solid var(--surface1); }
+.mode b { color: var(--text); }
+.mode[data-s="live"] { border-color: var(--warn); }
+.mode .btn { margin-left: auto; }

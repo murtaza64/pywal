@@ -31,6 +31,9 @@ const settings = () => {
 }
 
 const walCache = () => path.join(app.getPath("home"), ".cache", "wal")
+const live = (s) => path.resolve(s.liveDir) === walCache()
+// The system wallpaper stays out of live mode: on macOS it rewrites the wallpaper store.
+const LIVE_TARGETS = "files,kitty,es-desktop,pywalfox,tmux"
 const expand = (p) => (p.startsWith("~/") ? path.join(app.getPath("home"), p.slice(2)) : p)
 
 const backend = { proc: undefined, port: 0, log: undefined }
@@ -45,7 +48,20 @@ app.whenReady().then(async () => {
   ipcMain.handle("walstudio:info", (event) => {
     if (!ours(event.senderFrame?.url)) return undefined
     const s = settings()
-    return { wallpapers: s.wallpapers, liveDir: s.liveDir, targets: s.targets.split(","), log: backend.log }
+    return { wallpapers: s.wallpapers, liveDir: s.liveDir, targets: s.targets.split(","), log: backend.log, mode: live(s) ? "live" : "preview" }
+  })
+  // Switch where Apply writes: the app's private profile, or the live wal cache with the app targets.
+  ipcMain.handle("walstudio:set-mode", async (event, mode) => {
+    if (!ours(event.senderFrame?.url) || !["preview", "live"].includes(mode)) return undefined
+    const saved = readJson(configFile()) ?? {}
+    delete saved.liveDir
+    delete saved.targets
+    if (mode === "live") Object.assign(saved, { liveDir: walCache(), targets: LIVE_TARGETS })
+    writeJson(configFile(), saved)
+    stop()
+    await start()
+    win.loadURL(`${origin()}/`)
+    return { mode }
   })
   try {
     await start()
@@ -95,7 +111,7 @@ async function start() {
   const out = fs.openSync(backend.log, "a")
   const python = pythonFor(s.pywal)
   const args = ["-m", "pywal.studio", "--port", String(backend.port), "--allow-apply", "--targets", s.targets,
-    "--live-dir", s.liveDir, "--wallpapers", s.wallpapers, "--scratch", path.join(data(), "scratch"), "--backups", path.join(data(), "backups")]
+    "--live-dir", s.liveDir, "--wallpapers", s.wallpapers, "--scratch", path.join(data(), "scratch"), "--backups", path.join(data(), "backups", live(s) ? "live" : "preview")]
   backend.proc = spawn(python, args, {
     cwd: s.pywal,
     env: { ...process.env, PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH ?? "/usr/bin:/bin"}`, ...(s.receipt ? { PYWAL_STUDIO_ES_RECEIPT: s.receipt } : {}) },

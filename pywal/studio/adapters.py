@@ -122,7 +122,7 @@ def apply_kitty(studio, draft):
         return {"status": "skipped", "detail": "no kitty remote-control sockets"}
     look = draft.get("studio", {})
     # kitty loads wallpaper.blurred again on every launch, so the file must live in the live cache, not scratch.
-    rendered = studio.blurred(draft["wallpaper"], float(look.get("blur", 16)))
+    rendered = studio.blurred(draft["wallpaper"], float(look.get("blur", 16)), float(look.get("dim", 0)))
     blurred = os.path.join(studio.live_dir, "blurred", os.path.basename(rendered))
     os.makedirs(os.path.dirname(blurred), exist_ok=True)
     if not os.path.isfile(blurred):

@@ -12,6 +12,7 @@ import threading
 import time
 import unittest
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -122,7 +123,7 @@ class TestStudio(unittest.TestCase):
         self.assertEqual(res["results"][0]["status"], "verified")
         live = json.loads(Path(studio.live, "colors.json").read_text())
         self.assertEqual(live["special"]["background"], draft["special"]["background"])
-        self.assertEqual(live["studio"], {"blur": 8.0, "tint": 0.7})
+        self.assertEqual(live["studio"], {"blur": 8.0, "tint": 0.7, "dim": 0.0})
         self.assertTrue(os.path.isfile(os.path.join(studio.live, "colors-kitty.conf")))
         backups = os.listdir(os.path.join(studio.root, "backups"))
         backup_colors = json.loads(Path(studio.root, "backups", backups[0], "colors.json").read_text())
@@ -253,6 +254,19 @@ class TestStudio(unittest.TestCase):
             self.assertEqual(err.exception.code, 400)
         self.assertEqual(studio.live_snapshot(), before)
         self.assertEqual(studio.post("/api/apply", {"targets": ["files"]})["results"][0]["status"], "verified")
+
+    def test_dim_darkens_the_blurred_wallpaper_kitty_loads(self):
+        studio = StudioServer()
+        self.addCleanup(studio.close)
+        sweep = os.path.join(studio.walls, "sweep.png")
+        mean = lambda dim: sum(Image.open(__import__("io").BytesIO(urllib.request.urlopen(
+            f"http://127.0.0.1:{studio.port}/api/blur?path={urllib.parse.quote(sweep)}&sigma=4&dim={dim}", timeout=30).read())).convert("L").getdata())
+        self.assertLess(mean(0.5), mean(0) * 0.6)
+
+    def test_state_says_whether_apply_writes_the_live_wal_cache(self):
+        studio = StudioServer()
+        self.addCleanup(studio.close)
+        self.assertFalse(studio.get("/api/state")["liveIsSystem"])
 
     def test_cross_site_form_posts_cannot_reach_apply(self):
         studio = StudioServer("--allow-apply")
