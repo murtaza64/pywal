@@ -18,15 +18,20 @@ const configFile = () => path.join(data(), "config.json")
 // directory is the app's own profile, so a fresh install never writes the user's real theme.
 const settings = () => {
   const saved = readJson(configFile()) ?? {}
+  const liveDir = expand(process.env.WALSTUDIO_LIVE_DIR ?? saved.liveDir ?? path.join(data(), "profile", "live"))
   return {
     // A bundle records the pywal checkout it was built from; a source run uses the checkout it sits in.
-    pywal: process.env.WALSTUDIO_PYWAL ?? saved.pywal ?? readJson(path.join(__dirname, "package.json"))?.walstudio?.pywal ?? path.resolve(__dirname, "..", ".."),
-    wallpapers: process.env.WALSTUDIO_WALLPAPERS ?? saved.wallpapers ?? path.join(app.getPath("home"), "wallpapers"),
-    liveDir: process.env.WALSTUDIO_LIVE_DIR ?? saved.liveDir ?? path.join(data(), "profile", "live"),
-    targets: process.env.WALSTUDIO_TARGETS ?? saved.targets ?? "files,es-desktop",
+    pywal: expand(process.env.WALSTUDIO_PYWAL ?? saved.pywal ?? readJson(path.join(__dirname, "package.json"))?.walstudio?.pywal ?? path.resolve(__dirname, "..", "..")),
+    wallpapers: expand(process.env.WALSTUDIO_WALLPAPERS ?? saved.wallpapers ?? path.join(app.getPath("home"), "wallpapers")),
+    liveDir,
+    // es-desktop follows ~/.cache/wal only, so it is a default target only when Apply writes that cache.
+    targets: process.env.WALSTUDIO_TARGETS ?? saved.targets ?? (path.resolve(liveDir) === walCache() ? "files,es-desktop" : "files"),
     receipt: process.env.WALSTUDIO_ES_RECEIPT ?? saved.receipt,
   }
 }
+
+const walCache = () => path.join(app.getPath("home"), ".cache", "wal")
+const expand = (p) => (p.startsWith("~/") ? path.join(app.getPath("home"), p.slice(2)) : p)
 
 const backend = { proc: undefined, port: 0, log: undefined }
 let win
@@ -34,15 +39,21 @@ let win
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(menu())
   ipcMain.handle("walstudio:choose-wallpapers", (event) => {
-    if (event.senderFrame?.url && !event.senderFrame.url.startsWith(origin())) return undefined
+    if (!ours(event.senderFrame?.url)) return undefined
     return chooseWallpapers()
   })
   ipcMain.handle("walstudio:info", (event) => {
-    if (event.senderFrame?.url && !event.senderFrame.url.startsWith(origin())) return undefined
+    if (!ours(event.senderFrame?.url)) return undefined
     const s = settings()
     return { wallpapers: s.wallpapers, liveDir: s.liveDir, targets: s.targets.split(","), log: backend.log }
   })
-  await start()
+  try {
+    await start()
+  } catch (error) {
+    dialog.showErrorBox("WalStudio", `The Studio backend could not start: ${error.message}\n\nLog: ${backend.log ?? "(none)"}\nSet "pywal" in ${configFile()} to your pywal checkout.`)
+    app.quit()
+    return
+  }
   open()
 })
 
@@ -60,12 +71,20 @@ function open() {
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, sandbox: true, nodeIntegration: false },
   })
   // The window shows the app's own backend only; anything else opens nowhere.
-  win.webContents.on("will-navigate", (event, url) => { if (!url.startsWith(origin())) event.preventDefault() })
+  win.webContents.on("will-navigate", (event, url) => { if (!ours(url)) event.preventDefault() })
   win.webContents.setWindowOpenHandler(() => ({ action: "deny" }))
   win.loadURL(`${origin()}/`)
 }
 
 const origin = () => `http://127.0.0.1:${backend.port}`
+// Exact origin match: a prefix test would also accept other ports (":5000" vs ":50001"). No URL = refused.
+const ours = (url) => {
+  try {
+    return !!url && new URL(url).origin === origin()
+  } catch {
+    return false
+  }
+}
 
 async function start() {
   const s = settings()
@@ -87,7 +106,7 @@ async function start() {
     if (await up()) return
     await new Promise((resolve) => setTimeout(resolve, delay))
   }
-  dialog.showErrorBox("WalStudio", `The Studio backend did not start. Log: ${backend.log}`)
+  throw new Error(`no answer from the backend on port ${backend.port}`)
 }
 
 function stop() {
@@ -99,8 +118,9 @@ function stop() {
 }
 
 async function chooseWallpapers() {
-  // WALSTUDIO_TEST_PICK answers the picker for automated checks (a macOS dialog cannot be driven).
-  const result = process.env.WALSTUDIO_TEST_PICK ? { canceled: false, filePaths: [process.env.WALSTUDIO_TEST_PICK] } : await dialog.showOpenDialog(win, {
+  // WALSTUDIO_TEST_PICK answers the picker for automated checks (a macOS dialog cannot be driven);
+  // it needs WALSTUDIO_ALLOW_TEST_HOOKS=1 too, so a normal launch always shows the dialog.
+  const result = process.env.WALSTUDIO_TEST_PICK && process.env.WALSTUDIO_ALLOW_TEST_HOOKS === "1" ? { canceled: false, filePaths: [process.env.WALSTUDIO_TEST_PICK] } : await dialog.showOpenDialog(win, {
     title: "Choose wallpapers",
     message: "Choose a folder of wallpapers, or one image",
     properties: ["openDirectory", "openFile"],
