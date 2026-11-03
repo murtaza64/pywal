@@ -41,6 +41,7 @@ async function boot() {
   undo()
   history()
   desktop()
+  web()
   await generate()
   if (location.hash === "#compare") $("compare").click()
 }
@@ -95,6 +96,8 @@ function bind() {
   for (const k of ["blur", "tint", "dim"]) $(k).addEventListener("input", (e) => { S.look[k] = Number(e.target.value); showOut(k, S.look[k]); renderDraft() })
   for (const k of RANGE) $(k).addEventListener("input", tracks)
   $("exact").onchange = () => { renderDraft(); renderOriginal() }
+  $("views").onclick = (e) => e.target.dataset?.v && view(e.target.dataset.v)
+  view(localStorage.walView || "desk")
   $("chrome").onclick = () => { localStorage.walChrome = localStorage.walChrome === "neutral" ? "tinted" : "neutral"; chrome() }
   for (const k of ["l", "c", "h"]) $(`lch-${k}`).addEventListener("input", () => pin(oklchToHex(+$("lch-l").value, +$("lch-c").value, +$("lch-h").value)))
   $("shuffle-post").onclick = () => shuffle(false)
@@ -121,6 +124,14 @@ function bind() {
     split.onpointermove = move
     split.onpointerup = () => { split.onpointermove = null }
   }
+}
+
+// Scene picker: the whole desktop, or the terminal, browser or chat app filling the stage.
+function view(v) {
+  $("stage").dataset.view = v
+  for (const b of $("views").children) b.classList.toggle("on", b.dataset.v === v)
+  localStorage.walView = v
+  renderDraft()
 }
 
 const isField = (el) => ["INPUT", "SELECT", "TEXTAREA"].includes(el.tagName) && el.type !== "range" && el.type !== "checkbox"
@@ -210,6 +221,7 @@ async function generate() {
     $("seed").value = S.settings.seed
     renderDraft()
     outputs(res.outputs)
+    $("cli").textContent = cli()
     slot()
     status("ok", draftSummary())
   } catch (e) {
@@ -360,6 +372,13 @@ function fox(el, c) {
   url.style.background = c.surface0 || c.color0
   url.style.borderTop = `2px solid ${c.color4}`
   url.querySelector("i").style.background = c.color2
+  const page = el.querySelector(".fox-page")
+  page.querySelector("a").style.color = c.blue
+  Object.assign(page.querySelector("pre").style, { background: c.surface0 || c.color0, color: c.green })
+  Object.assign(page.querySelector(".fox-btn").style, { background: c.blue, color: c.background })
+  page.querySelector(".fox-ok").style.color = c.green
+  page.querySelector(".fox-warn").style.color = c.yellow
+  page.querySelector(".fox-bad").style.color = c.red
 }
 
 // Editspace's session page: transcript and composer sit on the blurred wallpaper under a --base scrim
@@ -386,6 +405,8 @@ function es(el, c, image, look) {
   el.querySelector("em").style.color = v["--accent"]
   el.querySelector(".es-ok").style.color = v["--green"]
   el.querySelector(".es-warn").style.color = v["--yellow"]
+  for (const m of el.querySelectorAll(".es-msg")) Object.assign(m.style, m.classList.contains("es-you") ? { background: v["--surface0"], borderLeft: "" } : { background: "", borderLeft: `2px solid ${v["--accent"]}` })
+  Object.assign(el.querySelector(".es-composer").style, { background: v["--crust"], color: v["--subtext1"], border: `1px solid ${v["--surface0"]}` })
 }
 
 function swatches(el, c, was, editable) {
@@ -436,6 +457,20 @@ function pin(hex) {
   S.overrides[S.selected] = hex
   $("slot-hex").value = hex
   schedule(120)
+}
+
+// The draft as a `wal` command: flags that differ from the CLI defaults, and the seed. Pinned slots are not expressible.
+const FLAGS = { contrast: "--contrast", saturate: "--saturate", brightness: "--brightness", bg_lightness: "--bg-lightness", bg_chroma: "--bg-chroma", shading: "--shading", choose: "--choose", generation_strategy: "--generation-strategy", subtractive_initial: "--subtractive-initial", bg_strategy: "--bg-strategy" }
+function cli() {
+  const q = (v) => /^[\w./~-]+$/.test(v) ? v : `'${v.replaceAll("'", "'\\''")}'`
+  const parts = ["wal", "-i", q(S.image.split("/").pop())]
+  if (S.settings.light) parts.push("-l")
+  for (const [k, flag] of Object.entries(FLAGS)) {
+    const v = S.settings[k]
+    if (v != null && v !== "" && String(v) !== String(S.state.defaults[k] ?? "")) parts.push(flag, String(v))
+  }
+  if (S.settings.seed) parts.push("--seed", S.settings.seed)
+  return parts.join(" ") + (Object.keys(S.overrides).length ? "   # plus pinned slots" : "")
 }
 
 function outputs(names) {
@@ -538,6 +573,7 @@ function draftSummary() {
   const d = flat(S.draft), l = flat(S.live)
   const changed = SAME.filter((k) => (d[k] || "").toLowerCase() !== (l[k] || "").toLowerCase()).length
   const mode = S.theme ? `theme ${S.theme.name}` : S.scheme ? "cached scheme" : S.history ? `applied ${S.history}` : S.restore ? `backup ${S.restore}` : "generated"
+  if (S.state.web) return `draft ${mode} · export only: download the files below; nothing leaves this tab`
   const where = S.state.allowApply ? "Apply sends it to checked apps" : "preview only: apps keep the live theme"
   return `draft ${mode} · ${changed ? `${changed}/${SAME.length} colours differ from live` : "same colours as live"} · ${where}`
 }
@@ -804,6 +840,46 @@ async function desktop() {
     if (res?.error) log(res.error)
   }
   $("where").innerHTML = `${esc(`theme files ${info.liveDir} · wallpapers ${info.wallpapers}`)}<span class="pill live">apply: ${esc(info.targets.join(", "))}</span>`
+}
+
+// Browser tab (export site): add images from this computer and download the draft's files. The engine
+// runs in this tab; nothing is uploaded or applied.
+function web() {
+  if (!S.state.web) return
+  document.body.classList.add("web")
+  $("where").innerHTML = `runs in this tab · images stay on this computer<span class="pill">export only</span>`
+  $("outputs-note").textContent = "download or view"
+  $("export-zip").hidden = false
+  // A fetch, not a link: link downloads skip the service worker and would ask the web server.
+  $("export-zip").onclick = async () => {
+    const res = await fetch("/api/export.zip")
+    if (!res.ok) return status("bad", `export failed: ${res.statusText}`)
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(await res.blob()), download: "wal.zip" })
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+  }
+  const input = Object.assign(document.createElement("input"), { type: "file", accept: "image/*", multiple: true, hidden: true })
+  const b = $("choose-walls")
+  b.hidden = false
+  b.textContent = "Add images…"
+  b.title = "Add wallpapers from this computer; they stay in this tab"
+  b.after(input)
+  b.onclick = () => input.click()
+  input.onchange = () => addImages([...input.files])
+  const stage = $("stage")
+  stage.addEventListener("dragover", (e) => { e.preventDefault(); stage.classList.add("dropping") })
+  stage.addEventListener("dragleave", () => stage.classList.remove("dropping"))
+  stage.addEventListener("drop", (e) => { e.preventDefault(); stage.classList.remove("dropping"); addImages([...e.dataTransfer.files].filter((f) => f.type.startsWith("image/"))) })
+}
+
+async function addImages(files) {
+  if (!files.length) return
+  try {
+    const paths = await window.walweb.add(files)
+    S.state = await api("/api/state")
+    walls()
+    pick(paths[0])
+  } catch (e) { status("bad", `could not add ${files.map((f) => f.name).join(", ")}: ${e.message}`) }
 }
 
 // Applied history: each Apply with its palette, targets and what each target proved. Paged from the

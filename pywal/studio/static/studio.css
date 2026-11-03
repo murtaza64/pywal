@@ -223,3 +223,38 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 3px; bord
 .hchips { display: flex; flex-wrap: wrap; gap: 2px 8px; font-size: 10px; text-transform: uppercase; }
 .s.partial, .s.unknown { color: var(--warn); } .s.loaded { color: var(--accent); }
 .hact { display: flex; gap: 4px; }
+
+/* Scene picker: the whole desktop, or one app filling the stage. */
+.bar .views { margin: 0; }
+.bar .views button { flex: none; padding: 0 10px; }
+.fox-page, .es-more { display: none; }
+.stage[data-view="term"] .scene, .stage[data-view="browser"] .scene, .stage[data-view="chat"] .scene { grid-template-columns: minmax(0, 1fr); }
+.stage[data-view="term"] .side { display: none; }
+.stage[data-view="term"] .tty { font-size: 15px; line-height: 1.45; padding: 14px 18px; }
+.stage[data-view="browser"] .term, .stage[data-view="chat"] .term { display: none; }
+.stage[data-view="browser"] .side, .stage[data-view="chat"] .side { display: grid; grid-template-rows: minmax(0, 1fr); }
+.stage[data-view="browser"] .es, .stage[data-view="chat"] .fox { display: none; }
+.stage[data-view="browser"] .fox { display: flex; flex-direction: column; }
+.stage[data-view="browser"] .fox-page { display: block; flex: 1; padding: 28px 36px; font-size: 14px; line-height: 1.6; overflow: hidden; }
+.fox-page h1 { margin: 0 0 10px; font-size: 22px; }
+.fox-page p { margin: 0 0 12px; max-width: 62ch; }
+.fox-page a { text-decoration: underline; }
+.fox-page pre { margin: 0 0 14px; padding: 10px 12px; font: 13px/1.4 var(--font); }
+.fox-row { display: flex; gap: 16px; align-items: center; }
+.fox-btn { padding: 4px 12px; }
+.stage[data-view="chat"] .es { grid-template-columns: 180px 1fr; font-size: 14px; }
+.stage[data-view="chat"] .es-glass { left: 180px; }
+.stage[data-view="chat"] .es-body { display: flex; flex-direction: column; padding: 18px 24px; }
+.stage[data-view="chat"] .es-title { font-size: 18px; }
+.stage[data-view="chat"] .es-more { display: flex; flex-direction: column; flex: 1; gap: 10px; margin-top: 12px; }
+.es-msg { padding: 8px 12px; max-width: 70ch; }
+.es-you { align-self: flex-end; }
+.es-composer { margin-top: auto !important; padding: 10px 12px; }
+/* Narrow screens show the terminal only, whatever scene was picked on a wide one. */
+@media (max-width: 860px) { .bar .views { display: none; } .stage[data-view] .term { display: flex; } .stage[data-view] .side { display: none; } .stage[data-view] .scene { grid-template-columns: 1fr; } }
+
+/* Browser tab (export site): nothing is applied, so the sync and compare-with-live controls go. */
+body.web #sync-section, body.web #apply-top, body.web #compare, body.web #live-wall, body.web #syncbar, body.web .check:has(#exact) { display: none; }
+.btn.wide { display: flex; align-items: center; justify-content: center; width: 100%; height: 28px; margin-bottom: 8px; text-decoration: none; }
+.stage.dropping::after { content: 'Drop images to add them'; position: absolute; inset: 12px; z-index: 8; display: grid; place-items: center; border: 2px dashed var(--accent); background: rgba(0,0,0,.55); color: #fff; font-size: 14px; }
+.log.cli { display: block; margin: 0 0 8px; white-space: pre-wrap; word-break: break-all; }

@@ -24,6 +24,7 @@ Needs Python 3.13+, `uv`, and ImageMagick (`magick`) on `PATH` for palette gener
 
 - **Wallpaper strip**: click to generate; ←/→, Random, Live wallpaper (jump to the live theme's image). A coloured band under a thumbnail means the cache already holds a scheme for it.
 - **Themes**: built-in and saved themes, and cached schemes, each with an 8-colour band; Save stores the draft as a theme.
+- **Scenes**: Desktop (terminal, browser and chat on the wallpaper), or one of them filling the stage.
 - **Palette**: dark/light, contrast, saturation, brightness, background lightness/chroma, shading, choose, strategy, seed, shuffle. Every change updates the draft only; the stage says when it is updating, the result, or why a preview failed.
 - **Slot**: click a swatch to pin a colour (hex or OKLCH sliders).
 - **Wallpaper glass**: Blur, Darken (terminal background tint toward the palette background; a 7:1 readability floor is marked), Dim (darken the wallpaper itself). Previewed on the terminal and app mocks.
@@ -55,20 +56,21 @@ The app runs its own Studio backend on a free loopback port and stops it on quit
 
 From a release: clone this fork to `~/pywal` (or set `pywal` in the config), unzip `WalStudio.app` from the release, then right-click > Open. It needs `uv` and ImageMagick as above.
 
-## Browser export
+## In the browser
 
-A static page that turns one wallpaper into a scheme and its files, without installing anything. Export only: no Apply, no upload.
+The same Studio page, running in a browser tab with nothing installed. Export only: no Apply, no app sync, no upload.
 
-![Browser export](img/export-dark.png)
+![Palette Studio in a browser tab](img/web.png)
 
     uv run python site/build.py                              # site/dist
-    python3 -m http.server 8000 --directory site/dist        # any static host works
+    python3 -m http.server 8000 --directory site/dist        # local try; needs a secure origin (localhost or https)
 
-- Runs the fork's palette pipeline and exporters in [Pyodide](https://pyodide.org) inside a Web Worker. The image is read into the tab's memory and never sent anywhere; the page loads Pyodide and Pillow from jsDelivr.
-- Controls: dark/light, saturate, brightness, contrast, shading, choose, background strategy, seed. Output: `colors.json`, `palette.json/css` and every template, singly or as `wal.zip` (unzip into `~/.cache/wal`).
-- Shows the equivalent `wal` command, with the seed.
-- Hosting: any static host. Pyodide needs eval and WebAssembly, and Chrome applies the page's policy to the worker and its module imports, so one policy covers both: `default-src 'none'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-eval' 'wasm-unsafe-eval'; worker-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`. Requests go only to the site and cdn.jsdelivr.net.
-- Approximation: the desktop uses `modern_colorthief` (Rust) and ImageMagick; the browser uses the pure-Python colorthief port and Pillow. Across 46 test wallpapers a median 84% of slots matched the desktop within 12/255 per channel; small quantizer differences can move a colour to another slot.
+- The page is Studio's own (`pywal/studio/static`). A service worker answers its `/api` requests from a Web Worker running `pywal.studio.web` in [Pyodide](https://pyodide.org): the fork's palette pipeline and exporters, with Pillow for thumbnails and blur. Images are read into the tab's memory and never sent anywhere; the page loads Pyodide and Pillow from jsDelivr.
+- Same controls and scenes as the desktop (Desktop, Terminal, Browser, Chat; wallpaper glass; slots; themes). Add images… or drop them on the stage; four generated sample wallpapers are built in.
+- Not here: Apply and sync targets, saved themes, history and backups, the exact ImageMagick blur. The Chat scene previews glass only; it does not configure any app.
+- Outputs: `colors.json`, `palette.json/css` and every template, singly or as `wal.zip` (unzip into `~/.cache/wal`), plus the equivalent `wal` command with its seed.
+- Hosting: any static host at a domain root. Pyodide needs eval and WebAssembly, Studio sets inline styles, and Chrome applies the page's policy to the worker and its module imports, so one policy covers all of it: `default-src 'none'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-eval' 'wasm-unsafe-eval'; worker-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`. Requests go only to the site and cdn.jsdelivr.net.
+- Approximation: the desktop uses `modern_colorthief` (Rust) and ImageMagick; the browser uses the pure-Python colorthief port and Pillow. Across 46 test wallpapers a median 84% of slots matched the desktop within 12/255 per channel; small quantizer differences can move a colour to another slot, including the background.
 
 ## Files and privacy
 

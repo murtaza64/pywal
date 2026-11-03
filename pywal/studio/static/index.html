@@ -13,6 +13,7 @@
   <span class="mark">wal<b>studio</b></span>
   <span class="where" id="where">…</span>
   <span class="grow"></span>
+  <div class="seg views" id="views" role="group" aria-label="Preview scene"><button data-v="desk" title="Terminal, browser and chat on the wallpaper">Desktop</button><button data-v="term" title="Terminal on wallpaper glass">Terminal</button><button data-v="browser" title="Browser (pywalfox colours)">Browser</button><button data-v="chat" title="Chat app on wallpaper glass">Chat</button></div>
   <div class="syncbar" id="syncbar" role="list" aria-label="Sync state"></div>
   <button class="btn" id="chrome" title="Studio chrome: tinted by the draft, or fixed neutral">Tinted</button>
   <button class="btn" id="compare" title="Hold C to flash the original">Compare</button>
@@ -91,7 +92,7 @@
       </div>
     </section>
 
-    <section>
+    <section id="sync-section">
       <h2>Sync <span class="aux" id="apply-state"></span></h2>
       <div class="mode" id="mode-line"></div>
       <div id="targets"></div>
@@ -111,7 +112,9 @@
     </section>
 
     <section>
-      <h2>Outputs <span class="aux">scratch, not live</span></h2>
+      <h2>Outputs <span class="aux" id="outputs-note">scratch, not live</span></h2>
+      <button class="btn btn-primary wide" id="export-zip" hidden>Download all (.zip)</button>
+      <pre class="log cli" id="cli" title="The same draft from the command line"></pre>
       <div class="outputs" id="outputs"></div>
       <pre class="log" id="output" hidden></pre>
     </section>
@@ -129,11 +132,22 @@
       <div class="fox">
         <div class="fox-tabs"><span class="on">pywalfox</span><span>docs</span><span>localhost</span></div>
         <div class="fox-url"><i></i>about:pywalfox</div>
+        <div class="fox-page">
+          <h1>Palette notes</h1>
+          <p>Sixteen colours from <a>the wallpaper</a>, each kept on its ANSI meaning, plus surfaces for apps.</p>
+          <pre><code>wal -i wallpaper.png --contrast 2</code></pre>
+          <p class="fox-row"><span class="fox-btn">Export</span><span class="fox-ok">● passing</span><span class="fox-warn">● pending</span><span class="fox-bad">● failing</span></p>
+        </div>
       </div>
       <div class="es">
         <div class="es-glass"><div class="es-wp"></div><div class="es-dimmer"></div><div class="es-scrim"></div></div>
         <div class="es-nav"><b>project</b><span class="on">session one</span><span>session two</span><span>notes</span></div>
-        <div class="es-body"><p class="es-title">Session</p><p>Generated 16 colours from <em>wallpaper</em>.</p><p class="es-ok">● verified</p><p class="es-warn">● waiting</p></div>
+        <div class="es-body"><p class="es-title">Session</p><p>Generated 16 colours from <em>wallpaper</em>.</p><p class="es-ok">● verified</p><p class="es-warn">● waiting</p>
+          <div class="es-more">
+            <p class="es-msg es-you">Make the terminal background a little darker.</p>
+            <p class="es-msg">Darken is now 0.95: the terminal text stays above 7:1 on the glass.</p>
+            <p class="es-composer">Message…</p>
+          </div></div>
       </div>
     </div>
     <div class="swatches"></div>
