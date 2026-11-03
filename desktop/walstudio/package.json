@@ -1,7 +1,7 @@
 {
   "name": "walstudio",
   "productName": "WalStudio",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Palette Studio as a desktop app",
   "main": "main.cjs",
   "private": true
