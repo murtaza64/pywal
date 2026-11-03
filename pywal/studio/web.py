@@ -1,55 +1,68 @@
 """Palette Studio in a browser tab (Pyodide): the same Studio and page, export only.
 
 The browser has no ImageMagick, no apps to sync and no wallpaper folder. Images the user adds are
-written to the in-memory filesystem; thumbnails, blur and the image average come from Pillow.
-Apply, sync, saved themes, history and backups do not exist here.
+written to the in-memory filesystem; thumbnails and blur come from Pillow. Saved themes go to the
+config dir, which the worker keeps in this browser's IndexedDB. Apply, sync and backups do not exist here.
 """
 
 import io
 import json
 import os
-import sys
 import zipfile
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from PIL import Image, ImageFilter
 
-from .. import util
+from .. import decoded as decoded_pixels
 from .server import DEFAULT_LOOK, IMAGE_EXTS, Studio
 
 
-def average_color(img):
-    """Mean colour of the image, standing in for ImageMagick's `-resize 1x1!`."""
-    with Image.open(img) as im:
-        r, g, b = im.convert("RGB").resize((1, 1), Image.BOX).getpixel((0, 0))
-    return f"#{r:02x}{g:02x}{b:02x}"
+GLASS = """# WalStudio glass: include this from kitty.conf after colors-kitty.conf.
+# wallpaper.blurred is the wallpaper at blur {blur:g}, dim {dim:g}.
+background_image ~/.cache/wal/wallpaper.blurred
+background_tint {tint:g}
+"""
 
 
 class WebStudio(Studio):
-    def __init__(self, root):
+    def __init__(self, root, kept=False):
         os.environ.setdefault("PYWAL_CACHE_DIR", os.path.join(root, "preview"))
         os.makedirs(os.environ["PYWAL_CACHE_DIR"], exist_ok=True)
         dirs = {k: os.path.join(root, k) for k in ("live", "walls", "scratch", "backups")}
         for d in dirs.values():
             os.makedirs(d, exist_ok=True)
         super().__init__(live_dir=dirs["live"], wallpapers=dirs["walls"], scratch=dirs["scratch"], backups=dirs["backups"], allow_apply=False, targets=[])
-        if sys.platform == "emscripten":
-            # No ImageMagick in the browser; the desktop keeps its own average.
-            util.image_average_color = average_color
+        self.decoded = {}  # path -> whether the browser's decode is used for its palette
+        self.kept = bool(kept)  # saved themes outlive the tab
 
     def state(self):
-        return {**super().state(), "host": "browser", "liveDir": "this tab", "liveIsSystem": False, "engine": {"missing": []}, "web": True}
+        return {**super().state(), "host": "browser", "liveDir": "this tab", "liveIsSystem": False, "engine": {"missing": []}, "web": True, "keptThemes": self.kept}
 
-    def add_image(self, name, data):
-        """Store an image the user picked; returns its path. Same-named files replace each other."""
+    def themes(self):
+        return {**super().themes(), "canSave": True}
+
+    def save_theme(self, body):
+        super().save_theme(body)
+        return {"saved": f"{body['name'].strip()} · kept in this browser" if self.kept else f"{body['name'].strip()} · until this tab closes (this browser does not keep site data)"}
+
+    def add_image(self, name, data, decoded=None):
+        """Store an image the user picked; returns its path. Same-named files replace each other.
+
+        `decoded` is the browser's own decode, (width, height, RGBA bytes): generation uses it in place
+        of Pyodide's Pillow, whose JPEG decoder differs from the desktop's (see pywal.decoded).
+        """
         name = os.path.basename(name).replace("/", "_") or "wallpaper"
         if Path(name).suffix.lower() not in IMAGE_EXTS:
             raise ValueError(f"{name}: not a supported image")
         path = os.path.join(self.wallpapers, name)
         with open(path, "wb") as f:
-            # From the page this is a JS Uint8Array proxy.
+            # From the page these are JS Uint8Array proxies.
             f.write(data.to_bytes() if hasattr(data, "to_bytes") else data)
+        decoded_pixels.PIXELS.pop(path, None)
+        if decoded is not None:
+            width, height, rgba = decoded
+            self.decoded[path] = decoded_pixels.register(path, int(width), int(height), rgba.to_bytes() if hasattr(rgba, "to_bytes") else rgba)
         return path
 
     def thumb(self, path, width):
@@ -72,12 +85,20 @@ class WebStudio(Studio):
         return out
 
     def export_zip(self):
-        """The draft's colors.json, palette.json/css and every template, as wal/… in one zip."""
+        """The draft's colors.json, palette.json/css and every template, as wal/… in one zip.
+
+        With the draft's glass: wallpaper.blurred (what desktop Apply hands kitty) and kitty-glass.conf,
+        which points kitty at it with the draft's tint.
+        """
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
             for p in sorted(Path(self.preview_dir).rglob("*")):
                 if p.is_file():
                     z.write(p, f"wal/{p.relative_to(self.preview_dir)}")
+            look, wall = (self.last or {}).get("studio"), (self.last or {}).get("wallpaper")
+            if look and wall and self.allowed_image(wall):
+                z.write(self.blurred(wall, look["blur"], look["dim"]), "wal/wallpaper.blurred", zipfile.ZIP_STORED)
+                z.writestr("wal/kitty-glass.conf", GLASS.format(tint=look["tint"], blur=look["blur"], dim=look["dim"]))
         return buf.getvalue()
 
     def handle(self, method, url, body=None):
@@ -89,6 +110,8 @@ class WebStudio(Studio):
                 data = json.loads(body or "{}")
                 if u.path == "/api/preview":
                     return ok(self.preview(data))
+                if u.path == "/api/themes/save":
+                    return ok(self.save_theme(data))
                 if u.path == "/api/plan":
                     self.set_look(data.get("look"))
                     return 403, *as_json({"error": "export only: nothing is applied from the browser"})

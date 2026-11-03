@@ -14,7 +14,7 @@ const api = async (path, body) => {
   if (!res.ok) throw new Error(data.error || res.statusText)
   return data
 }
-const img = (path, w) => `/api/image?path=${encodeURIComponent(path)}&w=${w}`
+const img = (path, w) => `api/image?path=${encodeURIComponent(path)}&w=${w}`
 // Eight-cell palette band (color0-7) from a band array or a colors.json-shaped object.
 const bandEl = (p) => {
   const el = Object.assign(document.createElement("span"), { className: "band" })
@@ -25,7 +25,7 @@ const bandEl = (p) => {
 const flat = (c) => ({ ...(c?.colors || {}), ...(c?.surfaces || {}), ...(c?.special || {}) })
 
 async function boot() {
-  S.state = await api("/api/state")
+  S.state = await api("api/state")
   S.live = S.state.live
   fromLive()
   $("where").innerHTML = `${S.state.host} · ${S.state.liveDir}` + (S.state.allowApply ? `<span class="pill live">apply enabled</span>` : `<span class="pill">preview only</span>`)
@@ -212,16 +212,17 @@ async function generate() {
   $("busy").hidden = false
   status("busy", "updating draft…")
   try {
-    const res = await api("/api/preview", { image: S.image, settings: S.settings, overrides: S.overrides, look: effLook(), theme: S.theme, restore: S.restore, scheme: S.scheme, history: S.history })
+    const res = await api("api/preview", { image: S.image, settings: S.settings, overrides: S.overrides, look: effLook(), theme: S.theme, restore: S.restore, scheme: S.scheme, history: S.history })
     if (ticket !== inflight) return
     S.draft = res.colors
     // A cached scheme brings the settings that generated it; retuning continues from there.
     if (S.scheme) { S.settings = { ...S.state.defaults, ...res.colors.settings }; syncControls() }
-    S.settings.seed = String(res.colors.settings.seed)
+    S.settings.seed = res.seed ?? String(res.colors.settings.seed)
     $("seed").value = S.settings.seed
     renderDraft()
     outputs(res.outputs)
     $("cli").textContent = cli()
+    here()
     slot()
     status("ok", draftSummary())
   } catch (e) {
@@ -295,7 +296,7 @@ function scene(layer, c, image, look, was) {
     const px = look.blur * scale
     if (exact || !CAN_FILTER) {
       wp.style.inset = exact ? "0" : "-60px"
-      wp.style.backgroundImage = `url("${exact ? `/api/blur?path=${encodeURIComponent(image)}&sigma=${look.blur}&dim=${look.dim ?? 0}&w=1600` : img(image, 1600)}")`
+      wp.style.backgroundImage = `url("${exact ? `api/blur?path=${encodeURIComponent(image)}&sigma=${look.blur}&dim=${look.dim ?? 0}&w=1600` : img(image, 1600)}")`
       if (exact) sc.querySelector(".dimmer").style.opacity = 0
       wp.style.filter = exact ? "" : `blur(${px.toFixed(2)}px)`
       ladder.style.opacity = 0
@@ -329,7 +330,7 @@ function sizeOf(path) {
     const i = new Image()
     i.onload = () => resolve({ w: i.naturalWidth, h: i.naturalHeight })
     i.onerror = () => resolve({ w: 1920, h: 1080 })
-    i.src = `/api/image?path=${encodeURIComponent(path)}`
+    i.src = `api/image?path=${encodeURIComponent(path)}`
   }))
 }
 
@@ -473,6 +474,49 @@ function cli() {
   return parts.join(" ") + (Object.keys(S.overrides).length ? "   # plus pinned slots" : "")
 }
 
+// Browser tab: apply the draft on this computer with the fork's own CLI. web/install.json (site/build.py)
+// names the repository and the git ref that holds this engine, so the palette is the same one.
+async function here() {
+  if (!S.state.web) return
+  S.install ??= await fetch(new URL("web/install.json", document.baseURI)).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+  const i = S.install
+  if (!i) return
+  const src = `git+${i.repo}@${i.ref}`
+  const run = `uvx --from ${src} wal`
+  const pinned = Object.keys(S.overrides).length > 0
+  const sample = /\/sample-[^/]+$/.test(S.image)
+  const image = cli().replace(/^wal /, "").replace(/ {3}# plus pinned slots$/, "")
+  const rows = [
+    ...(sample ? [] : [["No install, from your copy of the image", `${run} ${image}`,
+      pinned ? "Pinned slots aren't in this command; use the files below."
+        : "Run it where the image is; it also sets the image as your wallpaper (add -n to keep yours). Same image, settings and seed give the same palette."]]),
+    ["No install, exact files (pins and glass included)", `unzip -o ~/Downloads/wal.zip -d ~/.cache && ${run} -R -n`,
+      "After Download all (.zip): unpacks into ~/.cache/wal and reloads your apps. -n keeps your current wallpaper."],
+    ["Install (uv)", `uv tool install ${src}`, "Then wal … and walstudio (Palette Studio on this machine)."],
+    ["Install (pipx)", `pipx install ${src}`, null],
+    ...(i.brew ? [["Install (Homebrew)", i.brew, null]] : []),
+  ]
+  const row = ([title, cmd, note]) => {
+    const r = Object.assign(document.createElement("div"), { className: "here-row" })
+    const code = Object.assign(document.createElement("code"), { textContent: cmd })
+    const copy = Object.assign(document.createElement("button"), { className: "btn mini", textContent: "Copy", title: "Copy the command" })
+    copy.onclick = async () => {
+      try { await navigator.clipboard.writeText(cmd); copy.textContent = "Copied" } catch { copy.textContent = "Select it" }
+      setTimeout(() => (copy.textContent = "Copy"), 1200)
+    }
+    const line = Object.assign(document.createElement("div"), { className: "here-cmd" })
+    line.append(code, copy)
+    r.append(Object.assign(document.createElement("h3"), { textContent: title }), line)
+    if (note) r.append(Object.assign(document.createElement("p"), { className: "here-note", textContent: note }))
+    return r
+  }
+  const links = Object.assign(document.createElement("div"), { className: "here-links" })
+  for (const [text, href] of i.links || []) links.append(Object.assign(document.createElement("a"), { textContent: text, href, target: "_blank", rel: "noopener" }))
+  const needs = Object.assign(document.createElement("p"), { className: "here-note", textContent: i.needs || "" })
+  $("here-rows").replaceChildren(...rows.map(row), links, needs)
+  $("here").hidden = false
+}
+
 function outputs(names) {
   const box = $("outputs")
   box.replaceChildren(...names.filter((n) => !n.endsWith(".png")).map((n) => {
@@ -482,14 +526,14 @@ function outputs(names) {
       const on = b.classList.toggle("on")
       box.querySelectorAll("button").forEach((x) => x !== b && x.classList.remove("on"))
       $("output").hidden = !on
-      if (on) $("output").textContent = await (await fetch(`/api/output?name=${encodeURIComponent(n)}`)).text()
+      if (on) $("output").textContent = await (await fetch(`api/output?name=${encodeURIComponent(n)}`)).text()
     }
     return b
   }))
 }
 
 async function refreshSync() {
-  S.sync = await api("/api/sync").catch((e) => ({ targets: [], error: e.message }))
+  S.sync = await api("api/sync").catch((e) => ({ targets: [], error: e.message }))
   // Only targets this instance may apply, available now, and on by default; the system wallpaper never starts ticked.
   const permitted = (id) => !S.state.targets || S.state.targets.includes(id)
   S.targets ??= new Set(S.sync.targets.filter((t) => t.default && t.available && permitted(t.id) && t.id !== "system-wallpaper").map((t) => t.id))
@@ -530,7 +574,7 @@ function targets(results = S.results) {
 
 async function plan() {
   try {
-    const p = await api("/api/plan", { targets: [...S.targets], look: effLook() })
+    const p = await api("api/plan", { targets: [...S.targets], look: effLook() })
     log(planText(p))
     return p
   } catch (e) {
@@ -547,13 +591,13 @@ async function apply() {
   const where = S.state.liveIsSystem ? "the live theme (checked apps change)" : "WalStudio's private profile (your apps keep their theme)"
   if (!p || !confirm(`Apply the draft to ${where}?\n\n${planText(p)}`)) return
   try {
-    const res = await api("/api/apply", { targets: [...S.targets], look: effLook() })
+    const res = await api("api/apply", { targets: [...S.targets], look: effLook() })
     const by = Object.fromEntries(res.results.map((r) => [r.target, r]))
     S.sync = res.probe
     targets(by)
     log(res.results.map((r) => `${r.target.padEnd(16)} ${r.status.padEnd(9)} ${r.detail || ""}`).join("\n"))
     if (res.historyError) log(`${res.results.map((r) => `${r.target.padEnd(16)} ${r.status.padEnd(9)} ${r.detail || ""}`).join("\n")}\n\n${res.historyError}`)
-    S.state = await api("/api/state")
+    S.state = await api("api/state")
     undo()
     history()
     S.live = S.state.live
@@ -744,7 +788,7 @@ async function toggleThemes() {
   box.hidden = !box.hidden
   $("themes-btn").classList.toggle("on", !box.hidden)
   if (box.hidden) return
-  ;[S.themes, S.schemes] = await Promise.all([api("/api/themes"), api("/api/schemes").catch(() => [])])
+  ;[S.themes, S.schemes] = await Promise.all([api("api/themes"), api("api/schemes").catch(() => [])])
   $("theme-save").disabled = $("theme-name").disabled = !S.themes.canSave
   $("theme-name").placeholder = S.themes.canSave ? "save draft as…" : "saving needs --allow-apply"
   renderThemes()
@@ -795,19 +839,19 @@ async function saveTheme() {
   const name = $("theme-name").value.trim()
   if (!name) return
   try {
-    const res = await api("/api/themes/save", { name })
+    const res = await api("api/themes/save", { name })
     log(`saved ${res.saved}`)
   } catch (e) {
     if (!/exists/.test(e.message) || !confirm(`Replace theme ${name}?`)) return log(e.message)
-    log(`saved ${(await api("/api/themes/save", { name, overwrite: true })).saved}`)
+    log(`saved ${(await api("api/themes/save", { name, overwrite: true })).saved}`)
   }
-  S.themes = await api("/api/themes")
+  S.themes = await api("api/themes")
   renderThemes()
 }
 
 // Undo: a backup becomes the draft; applying it goes through the same plan, confirm and proofs.
 async function undo() {
-  const list = await api("/api/backups").catch(() => [])
+  const list = await api("api/backups").catch(() => [])
   $("undo").hidden = !list.length
   $("undo-list").replaceChildren(...list.slice(0, 6).map((b) => {
     const btn = document.createElement("button")
@@ -847,12 +891,13 @@ async function desktop() {
 function web() {
   if (!S.state.web) return
   document.body.classList.add("web")
-  $("where").innerHTML = `runs in this tab · images stay on this computer<span class="pill">export only</span>`
+  $("where").innerHTML = `runs in this tab · images stay on this computer${S.state.keptThemes ? " · saved themes stay in this browser" : ""}<span class="pill">export only</span>`
+  $("exact-what").textContent = "Exact render (the wallpaper.blurred in wal.zip)"
   $("outputs-note").textContent = "download or view"
   $("export-zip").hidden = false
   // A fetch, not a link: link downloads skip the service worker and would ask the web server.
   $("export-zip").onclick = async () => {
-    const res = await fetch("/api/export.zip")
+    const res = await fetch("api/export.zip")
     if (!res.ok) return status("bad", `export failed: ${res.statusText}`)
     const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(await res.blob()), download: "wal.zip" })
     a.click()
@@ -876,7 +921,7 @@ async function addImages(files) {
   if (!files.length) return
   try {
     const paths = await window.walweb.add(files)
-    S.state = await api("/api/state")
+    S.state = await api("api/state")
     walls()
     pick(paths[0])
   } catch (e) { status("bad", `could not add ${files.map((f) => f.name).join(", ")}: ${e.message}`) }
@@ -888,7 +933,7 @@ const HISTORY_PAGE = 30
 async function history(more) {
   const filter = $("history-filter").value
   const offset = more ? S.historyRows.length : 0
-  const page = await api(`/api/history?limit=${HISTORY_PAGE}&offset=${offset}${filter ? `&fingerprint=${encodeURIComponent(filter)}` : ""}`).catch(() => null)
+  const page = await api(`api/history?limit=${HISTORY_PAGE}&offset=${offset}${filter ? `&fingerprint=${encodeURIComponent(filter)}` : ""}`).catch(() => null)
   if (!page) return
   S.historyRows = more ? [...S.historyRows, ...page.entries] : page.entries
   $("history").hidden = !page.total && !filter

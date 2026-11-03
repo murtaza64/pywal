@@ -28,7 +28,7 @@ class TestGetPalette(unittest.TestCase):
                 colors = colorthief.get_palette(gradient(os.path.join(self.dir, f"{mode}.png"), mode), color_count=8)
                 self.assertGreater(len(colors), 1)
 
-    def test_without_the_rust_quantizer_the_pure_python_port_returns_a_palette(self):
+    def test_without_the_rust_quantizer_the_port_returns_a_palette(self):
         path = gradient(os.path.join(self.dir, "rgb.png"), "RGB")
         # A None entry makes `import modern_colorthief` raise ImportError, as in Pyodide.
         with mock.patch.dict(sys.modules, {"modern_colorthief": None}):

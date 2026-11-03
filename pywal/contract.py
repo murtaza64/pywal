@@ -237,6 +237,9 @@ def distinct_highlights(raw, surface):
     for H in (205.0, 0.0, 50.0, 295.0):  # cyan, pink, orange, violet
         if len(hues) < HL_DISTINCT_COUNT and all(hue_gap(H, x) >= 30 for x in hues):
             hues.append(H)
+    # A one-hue wallpaper can crowd out the deck hues too: fill with the hue farthest from the rest.
+    while len(hues) < HL_DISTINCT_COUNT:
+        hues.append(max((float(H) for H in range(0, 360, 5)), key=lambda H: min((hue_gap(H, x) for x in hues), default=180.0)))
     rungs = ladder(surface)
     best, best_score = None, -1.0
     # Mid-grey surfaces leave little lightness room; more chroma lets hue carry the difference there.

@@ -23,7 +23,7 @@ New or changed flags (see `uv run -m pywal -h`):
 | `--light/-l`, `--dark` | `--dark` overrides a saved `--light` |
 | `--saturate` | now `-100..100` (was `-1.0..1.0`) |
 | `--brightness` | new: minimum palette brightness |
-| `--contrast` | default `2.0` (pywal16: off); `0` disables. Needs ImageMagick |
+| `--contrast` | default `2.0` (pywal16: off); `0` disables. The baseline is the image mean (Pillow; pywal16 used ImageMagick) |
 | `--shading {darken,lighten}` | replaces `--cols16`; default `lighten` |
 | `--choose`, `--generation-strategy/--gen`, `--subtractive-initial/--si` | new: how the 8 base colours are picked |
 | `--bg-strategy`, `--bg-lightness`, `--bg-chroma`, `--seed` | new |

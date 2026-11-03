@@ -10,7 +10,7 @@ import os
 import shutil
 import random
 
-from .settings import __version__
+from .settings import SEED_MAX, __version__
 from .print import palette, print_terminal_palette
 from .util import get_cache_file
 from pywal import util
@@ -491,7 +491,7 @@ def load_modify_settings(cli_provided_args):
         if "seed" not in cli_provided_args and "choose" in cli_provided_args:
             if "random" in ARGS.choose:
                 logging.info("Reseeding due to 'random' in choose strategy.")
-                ARGS.seed = random.randint(0, sys.maxsize)
+                ARGS.seed = random.randint(0, SEED_MAX)
                 changed_settings["seed"] = ARGS.seed
 
         if changed_settings:
@@ -530,7 +530,7 @@ def parse_args():
             ARGS.light = False
 
     if not ARGS.seed:
-        ARGS.seed = random.randint(0, sys.maxsize)
+        ARGS.seed = random.randint(0, SEED_MAX)
 
     random.seed(ARGS.seed)
     logging.debug(f"Random seed set to: {ARGS.seed}")

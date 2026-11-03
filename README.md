@@ -11,11 +11,17 @@ A fork of [pywal16](https://github.com/eylles/pywal16) that keeps generated colo
 
 ## Install
 
+    uvx --from git+https://github.com/murtaza64/pywal wal -i ~/Pictures/wallpaper.jpg   # no install: generate and apply
+    uv tool install git+https://github.com/murtaza64/pywal    # installs `wal` and `walstudio`
+    pipx install git+https://github.com/murtaza64/pywal       # the same with pipx
+
+Pin a release with `…/pywal@<tag>`. The macOS app is on the [releases page](https://github.com/murtaza64/pywal/releases/latest). From a checkout:
+
     git clone https://github.com/murtaza64/pywal && cd pywal
     uv run -m pywal -i ~/Pictures/wallpaper.jpg   # generate and apply, as `wal` does
     uv run -m pywal.studio                      # Palette Studio at http://127.0.0.1:4790/
 
-Needs Python 3.13+ ([uv](https://docs.astral.sh/uv/) installs it) and ImageMagick (`magick`). macOS is where this fork is used and tested; the CLI keeps pywal's Linux support but it is not tested here.
+Needs Python 3.13+ ([uv](https://docs.astral.sh/uv/) installs it). ImageMagick (`magick`) for the blurred wallpaper, thumbnails and `wal`'s blur. macOS is where this fork is used and tested; the CLI keeps pywal's Linux support but it is not tested here.
 
 ## Licence and upstream
 

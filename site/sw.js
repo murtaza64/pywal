@@ -3,9 +3,13 @@
 self.addEventListener("install", () => self.skipWaiting())
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()))
 
+// The studio's directory (registration scope), e.g. "/" or "/review/walstudio/". Only <BASE>api/ is
+// answered here; every other request, including other apps on the same origin, goes to the network.
+const BASE = new URL(self.registration.scope).pathname
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url)
-  if (url.origin !== self.location.origin || !url.pathname.startsWith("/api/")) return
+  if (url.origin !== self.location.origin || !url.pathname.startsWith(BASE + "api/")) return
   event.respondWith(forward(event, url))
 })
 
@@ -15,7 +19,8 @@ async function forward(event, url) {
   const body = event.request.method === "POST" ? await event.request.text() : null
   const channel = new MessageChannel()
   const reply = new Promise((resolve) => (channel.port1.onmessage = (m) => resolve(m.data)))
-  client.postMessage({ type: "api", method: event.request.method, url: url.pathname + url.search, body }, [channel.port2])
+  // The engine routes on /api/…, whatever the prefix.
+  client.postMessage({ type: "api", method: event.request.method, url: "/" + url.pathname.slice(BASE.length) + url.search, body }, [channel.port2])
   const r = await reply
   return new Response(r.bytes, { status: r.status, headers: { "Content-Type": r.mime, "Cache-Control": "no-store" } })
 }

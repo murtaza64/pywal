@@ -17,22 +17,30 @@ def get_palette(img: str, color_count: int) -> list[RGB]:
     try:
         from modern_colorthief import get_palette as quantize
     except ImportError:
-        # Pyodide (the browser export) has no Rust wheel; the pure-Python port runs the same algorithm,
-        # so results approximate the desktop engine rather than match it.
-        from colorthief import ColorThief
-        return ColorThief(img).get_palette(color_count=color_count, quality=10)
+        # Pyodide (the browser) has no Rust wheel. pywal.mmcq is an exact port of it, and both
+        # read Pillow's pixels (see rgb_source), so the browser palette equals the desktop's.
+        from . import mmcq
+        return mmcq.get_palette(img, color_count=color_count)
     return quantize(rgb_source(img), color_count=color_count)
 
 
 def rgb_source(img: str) -> str | bytes:
-    """The image as modern_colorthief can read it: it panics on greyscale (L, LA, 1) pixel formats."""
+    """The image as modern_colorthief should read it: Pillow's decoded pixels unless it is a plain PNG.
+
+    The Rust wheel panics on greyscale (L, LA, 1) pixel formats, and its own JPEG/WebP decoders round
+    differently from Pillow's, which moved slots between desktop and browser. Lossless PNG decodes
+    identically, so it is passed through.
+    """
     from PIL import Image
 
     with Image.open(img) as im:
-        if im.mode in ("RGB", "RGBA", "P"):
+        if im.format == "PNG" and im.mode in ("RGB", "RGBA", "P"):
             return img
+        alpha = "A" in im.getbands() or (im.mode == "P" and "transparency" in im.info)
+        im = im.convert("RGBA" if alpha else "RGB")
         buf = io.BytesIO()
-        im.convert("RGBA" if "A" in im.getbands() else "RGB").save(buf, "PNG")
+        # BMP is the cheapest container the wheel reads; RGBA goes through a fast PNG.
+        im.save(buf, "PNG", compress_level=1) if alpha else im.save(buf, "BMP")
         return buf.getvalue()
 
 

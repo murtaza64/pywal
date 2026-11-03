@@ -16,7 +16,7 @@ from . import theme
 from . import util
 from . import match
 from .print import palette_absolute
-from .settings import __cache_version__
+from .settings import SEED_MAX, __cache_version__
 from .color import Color, rgb_to_hex
 from . import colorthief
 from . import oklab
@@ -620,7 +620,7 @@ def get(img, cache_dir=None):
     # Ensure deterministic palette generation across repeated calls
     # (e.g. the web UI), matching the CLI behavior.
     if not getattr(ARGS, "seed", None):
-        ARGS.seed = random.randint(0, sys.maxsize)
+        ARGS.seed = random.randint(0, SEED_MAX)
     random.seed(int(ARGS.seed))
     logging.info("RNG seed: %s", ARGS.seed)
 

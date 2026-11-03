@@ -46,7 +46,7 @@ def serve(host, port, live_dir, wallpapers, scratch, backups, allow_apply, targe
     server = type("Server", (ThreadingHTTPServer,), {"request_queue_size": 128})((host, port), handler)
     print(f"Palette Studio: http://{host}:{port}/  live={live_dir}  apply={'on' if allow_apply else 'off'}  targets={','.join(targets) if targets else 'all'}", flush=True)
     if not (shutil.which("magick") or shutil.which("convert")):
-        print("WARNING: ImageMagick (magick) is not on PATH; generated previews will fail. Add its directory to PATH.", flush=True)
+        print("WARNING: ImageMagick (magick) is not on PATH; the blurred wallpaper and thumbnails need it. Add its directory to PATH.", flush=True)
     server.serve_forever()
 
 
@@ -122,10 +122,9 @@ class Studio:
                     else palette.get(image, cache_dir=self.preview_dir)
                 )
             except SystemExit:
-                # The CLI engine exits on a missing tool (ImageMagick); in a server that would kill the
+                # The CLI engine exits when it cannot build a palette; in a server that would kill the
                 # request thread and drop the connection, so the draft would silently stop updating.
-                missing = "" if shutil.which("magick") or shutil.which("convert") else " ImageMagick (magick) is not on this server's PATH."
-                raise RuntimeError(f"palette engine exited.{missing}") from None
+                raise RuntimeError("the palette engine could not use this image") from None
             colors = apply_overrides(colors, body.get("overrides") or {})
             colors["studio"] = clean_look(body.get("look") or {})
             # Templates render into the scratch cache (PYWAL_CACHE_DIR), never the live one.
@@ -133,7 +132,9 @@ class Studio:
             with open(os.path.join(self.preview_dir, "colors.json"), "w") as f:
                 json.dump(colors, f, indent=4)
             self.last = colors
-        return {"colors": colors, "outputs": sorted(os.listdir(self.preview_dir))}
+        # The seed as a string too: JSON numbers above 2**53 lose digits in the page.
+        seed = (colors.get("settings") or {}).get("seed")
+        return {"colors": colors, "outputs": sorted(os.listdir(self.preview_dir)), "seed": None if seed is None else str(seed)}
 
     def palette(self):
         """The live wal-palette contract (colours only), memoised on the cache files' mtimes; never writes."""

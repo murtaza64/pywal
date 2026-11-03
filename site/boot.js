@@ -6,7 +6,10 @@ const status = (text, bad = false) => {
   el.dataset.s = bad ? "bad" : "busy"
 }
 
-const engine = new Worker("/web/worker.js", { type: "module" })
+// Everything is relative to the page's directory, so the studio works at a domain root or under a
+// prefix such as /review/walstudio/. BASE is that directory's path, ending in "/".
+const BASE = new URL(".", document.baseURI).pathname
+const engine = new Worker(new URL("web/worker.js", document.baseURI), { type: "module" })
 const pending = new Map()
 let nextId = 0
 const call = (msg, transfer = []) =>
@@ -43,7 +46,8 @@ async function start() {
     event.ports[0].postMessage({ status: reply.status, mime: reply.mime, bytes: reply.bytes }, [reply.bytes.buffer])
   })
   status("loading the palette engine (about 15 MB, once)…")
-  await navigator.serviceWorker.register("/sw.js")
+  // Scope is this directory only: the worker never sees requests outside the studio's prefix.
+  await navigator.serviceWorker.register(new URL("sw.js", document.baseURI), { scope: BASE })
   await navigator.serviceWorker.ready
   if (!navigator.serviceWorker.controller) {
     await Promise.race([
@@ -56,7 +60,7 @@ async function start() {
   if (!navigator.serviceWorker.controller) throw new Error("the studio needs its service worker; reload the page normally")
   guard()
   await call({ type: "ready" })
-  await import("/static/studio.js")
+  await import(new URL("static/studio.js", document.baseURI).href)
 }
 
 // Belt and braces: an /api fetch that would leave the tab (no controlling service worker) is refused.
@@ -64,7 +68,7 @@ function guard() {
   const send = window.fetch.bind(window)
   window.fetch = (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input), location.href)
-    if (url.origin === location.origin && url.pathname.startsWith("/api/") && !navigator.serviceWorker.controller)
+    if (url.origin === location.origin && url.pathname.startsWith(BASE + "api/") && !navigator.serviceWorker.controller)
       return Promise.reject(new Error("studio requests stay in this tab; reload the page normally"))
     return send(input, init)
   }

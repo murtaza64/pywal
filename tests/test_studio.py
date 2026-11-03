@@ -43,7 +43,10 @@ class StudioServer:
             s.bind(("127.0.0.1", 0))
             self.port = s.getsockname()[1]
         # A private config dir keeps saved themes out of the real ~/.config/wal.
-        env = {**{k: v for k, v in os.environ.items() if k != "PYWAL_CACHE_DIR"}, "XDG_CONFIG_HOME": os.path.join(self.root, "config"), **(env or {})}
+        # TMUX/TMUX_TMPDIR point at a private, empty socket dir, so the tmux target never reaches the
+        # developer's own server.
+        env = {**{k: v for k, v in os.environ.items() if k not in ("PYWAL_CACHE_DIR", "TMUX")}, "XDG_CONFIG_HOME": os.path.join(self.root, "config"), "TMUX_TMPDIR": os.path.join(self.root, "tmux"), **(env or {})}
+        os.makedirs(os.path.join(self.root, "tmux"))
         self.proc = subprocess.Popen(
             [sys.executable, "-m", "pywal.studio", "--port", str(self.port), "--live-dir", self.live, "--wallpapers", self.walls, "--scratch", os.path.join(self.root, "scratch"), "--backups", os.path.join(self.root, "backups"), *extra],
             env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -98,16 +101,16 @@ class TestStudio(unittest.TestCase):
             studio.get("/api/image?path=/etc/hosts")
         self.assertEqual(err.exception.code, 403)
 
-    def test_missing_imagemagick_is_reported_instead_of_dropping_the_preview(self):
-        # A launchd service gets a bare PATH without Homebrew; the engine then exits mid-request.
-        studio = StudioServer(env={"PATH": "/usr/bin:/bin"})
+    def test_without_imagemagick_previews_still_generate_and_blur_says_why_it_failed(self):
+        # A launchd service gets a bare PATH without Homebrew. Generation is Pillow-only; blur needs magick.
+        studio = StudioServer(env={"PATH": tempfile.mkdtemp(prefix="studio-empty-path-")})
         self.addCleanup(studio.close)
-        with self.assertRaises(urllib.error.HTTPError) as err:
-            studio.post("/api/preview", {"image": os.path.join(studio.walls, "sweep.png")})
-        self.assertEqual(err.exception.code, 500)
-        self.assertIn("ImageMagick", json.load(err.exception)["error"])
+        sweep = os.path.join(studio.walls, "sweep.png")
+        self.assertIn("colors.json", studio.post("/api/preview", {"image": sweep})["outputs"])
         self.assertIn("magick", studio.get("/api/state")["engine"]["missing"])
-
+        with self.assertRaises(urllib.error.HTTPError) as err:
+            studio.get(f"/api/blur?path={urllib.parse.quote(sweep)}&sigma=8")
+        self.assertIn("ImageMagick", json.load(err.exception)["error"])
     def test_unusable_image_reports_an_error(self):
         studio = StudioServer()
         self.addCleanup(studio.close)

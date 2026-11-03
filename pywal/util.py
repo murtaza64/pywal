@@ -6,7 +6,6 @@ import json
 import logging
 import os
 import platform
-import re
 import shutil
 import subprocess
 import sys
@@ -194,31 +193,15 @@ def has_im():
 
 
 def image_average_color(img):
-    """Get the average color of an image using imagemagick
-    by resizing to 1x1"""
-    # Attempt to run the imagemagick command
-    # Resizes to 1x1 and enumerates all pixel data (one pixel) to stdout
-    # Command adapted from a stackoverflow thread, but tinkered with because the
-    # thread was a decade old:
-    # # https://stackoverflow.com/questions/25488338/how-to-find-average-color-of-an-image-with-imagemagick
-    cmd_flags = [
-        "-resize",
-        "1x1!",
-        "-format",
-        '"%[fx:int(255*r+.5)],%[fx:int(255*g+.5)],%[fx:int(255*b+.5)]"',
-        "txt:-",
-    ]
-    magick_command = has_im()
-    try:
-        magick_output = subprocess.run(
-            [magick_command, img] + cmd_flags, stdout=subprocess.PIPE
-        )
-    except subprocess.CalledProcessError as Err:
-        logging.error(
-            "Problem running image averaging command. Is imagemagick installed?"
-        )
-        logging.error("Imagemagick error: %s", Err)
-        return ""
+    """Mean sRGB colour of the image, as #rrggbb.
 
-    # Regex hex code from the command output
-    return re.search("#[0-9A-Fa-f]{6}", magick_output.stdout.decode("utf-8"))[0]
+    Pillow on every platform, so the desktop and the browser agree (ImageMagick's `-resize 1x1!`
+    is a filtered sample, not the mean).
+    """
+    from PIL import Image
+
+    from .decoded import open_image
+
+    with open_image(img) as im:
+        r, g, b = im.convert("RGB").resize((1, 1), Image.BOX).getpixel((0, 0))
+    return f"#{r:02x}{g:02x}{b:02x}"

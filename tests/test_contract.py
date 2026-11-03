@@ -88,6 +88,13 @@ class TestContract(unittest.TestCase):
         hl1 = contract.build(colours)["highlights"][0]
         self.assertLess(contract.hue_gap(contract.oklch(hl1)[2], contract.oklch(first)[2]), 3)
 
+    def test_a_one_hue_wallpaper_still_gets_four_highlights(self):
+        """A red-only wallpaper (generated scheme) crowds out every deck hue; hl1..hl4 still fill."""
+        built = contract.build(ONE_HUE)
+        self.assertEqual(len(set(built["highlights"][:4])), 4)
+        hues = [contract.oklch(h)[2] for h in built["highlights"][:4]]
+        self.assertGreaterEqual(min(contract.hue_gap(a, b) for i, a in enumerate(hues) for b in hues[i + 1:]), 30)
+
     def test_fork_palette_vector(self):
         """Golden output for a real fork palette (hades-2-mel, subtractive, colorthief)."""
         built = contract.build(HADES)
@@ -109,6 +116,8 @@ HADES = {
 }
 HADES_HL_BG = ["#32415d", "#54213e", "#174c38", "#3d2819"]
 
+
+ONE_HUE = {"special": {"background": "#220403", "foreground": "#f1dfde", "cursor": "#f1dfde"}, "colors": {"background": "#220403", "white": "#fac5c3", "color0": "#ce0c0c", "color1": "#e21312", "color2": "#f56338", "color3": "#ce0c0c", "color4": "#cd0e0e", "color5": "#ec3d29", "color6": "#fc808f", "color7": "#f54657", "red": "#ee2636", "green": "#009a28", "yellow": "#908000", "blue": "#4175f1", "magenta": "#fc808f", "cyan": "#f56338", "black": "#220403", "color8": "#c27670", "color9": "#c88680", "color10": "#d3a598", "color11": "#c27670", "color12": "#c27570", "color13": "#ce958d", "color14": "#e3bec1", "color15": "#d8a3a5", "bright_red": "#d19594", "bright_green": "#4aad55", "bright_yellow": "#a09445", "bright_blue": "#97aad2", "bright_magenta": "#e3bec1", "bright_cyan": "#d3a598", "bright_white": "#f1dfde", "bright_black": "#665654", "foreground": "#f1dfde", "surface0": "#351410", "surface1": "#492521", "surface2": "#5d3833", "surface3": "#724b46", "surface4": "#875f59", "surface5": "#9d736d", "subsurface0": "#1b0101", "subsurface1": "#130000", "subsurface2": "#0b0000", "diff_minus_bg": "#470006", "diff_minus_emph": "#8a0015", "diff_plus_bg": "#002b05", "diff_plus_emph": "#005813"}}
 
 if __name__ == "__main__":
     unittest.main()

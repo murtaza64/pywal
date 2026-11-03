@@ -186,13 +186,27 @@ def file(input_file, light=False):
         if shading:
             if r_theme["colors"]["color1"] == r_theme["colors"]["color9"]:
                 logging.info("requested theme uses 9 shades, converting to 16")
-                palette.shade_16(r_theme["colors"], light, shading)
+                shade_theme(r_theme, light, shading)
         return r_theme
 
     logging.error("No %s colorscheme file found.", bri)
     logging.error("Try adding   '-l' to set light themes.")
     logging.error("Try removing '-l' to set dark themes.")
     sys.exit(1)
+
+
+def shade_theme(r_theme, light, shading):
+    """Derive color0-15 of a 9-shade theme (color1-7 repeated as 9-15) the way generation does."""
+    from .color import Color
+
+    base = {i: Color.from_hex(r_theme["colors"][f"color{i}"]) for i in range(8)}
+    base["background"] = Color.from_hex(r_theme["special"]["background"])
+    palette.shade_16(base, light, shading)
+    base[8] = base["bright_black"]
+    for i in range(16):
+        old = r_theme["colors"][f"color{i}"]
+        if base[i].hex_color.lower() != old.lower():
+            r_theme["colors"][f"color{i}"] = base[i].hex_color
 
 
 def save(colors, theme_name, light=False):

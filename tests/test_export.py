@@ -36,12 +36,18 @@ class TestExportColors(unittest.TestCase):
         self.assertEqual(content[6], pattern)
 
     def test_all_templates(self):
-        """> Test substitutions in template file."""
-        tmp_file = os.path.join(TMP_DIR, "colors.sh")
-        export.every(COLORS, TMP_DIR)
+        """> Every template renders a generated scheme into the cache dir."""
+        from pywal import palette
 
+        with unittest.mock.patch.dict(os.environ, {"PYWAL_CACHE_DIR": TMP_DIR}):
+            colors = palette.get("tests/test_files/test.jpg", cache_dir=TMP_DIR)
+            export.every(colors)
+
+        tmp_file = os.path.join(TMP_DIR, "colors.sh")
         self.is_file(tmp_file)
-        self.is_file_contents(tmp_file, "foreground='#F5F1F4'")
+        self.assertIn(f"foreground='{colors['special']['foreground']}'", util.read_file(tmp_file))
+        for name in ("palette.json", "palette.css", "colors-kitty.conf"):
+            self.is_file(os.path.join(TMP_DIR, name))
 
     def test_css_template(self):
         """> Test substitutions in template file (css)."""

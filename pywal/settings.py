@@ -28,3 +28,7 @@ CONF_DIR = os.path.join(XDG_CONF_DIR, "wal")
 MODULE_DIR = os.path.dirname(__file__)
 
 OS = platform.uname()[0]
+
+# Seeds stay within JavaScript's exact-integer range (2**53 - 1): Studio's page shows, sends and
+# copies them, and a rounded seed would not reproduce the palette.
+SEED_MAX = 2**53 - 1
