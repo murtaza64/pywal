@@ -18,6 +18,7 @@ class Pywal < Formula
         #!/bin/sh
         exec "#{Formula["uv"].opt_bin}/uv" tool run --from "#{source}" #{cmd} "$@"
       SH
+      chmod 0755, bin/cmd
     end
   end
 
