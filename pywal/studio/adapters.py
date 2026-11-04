@@ -117,10 +117,14 @@ def apply_files(studio, draft):
     for name in names + ["wal"]:
         if os.path.isfile(os.path.join(live, name)):
             shutil.copy2(os.path.join(live, name), os.path.join(backup, name))
-    for name in names:
-        shutil.copy2(os.path.join(studio.preview_dir, name), os.path.join(live, name))
+    # Wallpaper path first, the palette contract last: an app that wakes on palette.json finds the
+    # matching wallpaper already in place. Each file is replaced atomically (no partial reads).
     Path(live, "wal").write_text(draft["wallpaper"])
     link(draft["wallpaper"], os.path.join(live, "wallpaper"))
+    for name in sorted(names, key=lambda n: n.startswith("palette.")):
+        tmp = os.path.join(live, f".{name}.{os.getpid()}.tmp")
+        shutil.copyfile(os.path.join(studio.preview_dir, name), tmp)
+        os.replace(tmp, os.path.join(live, name))
     written = read_json(os.path.join(live, "colors.json")) or {}
     ok = written.get("special", {}).get("background") == draft["special"]["background"]
     return {"status": "verified" if ok else "mismatch", "detail": f"{len(names)} files; backup {backup}", "backup": os.path.basename(backup)}

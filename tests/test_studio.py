@@ -131,6 +131,10 @@ class TestStudio(unittest.TestCase):
         self.assertEqual(live["special"]["background"], draft["special"]["background"])
         self.assertEqual(live["studio"], {"blur": 8.0, "tint": 0.7, "dim": 0.0})
         self.assertTrue(os.path.isfile(os.path.join(studio.live, "colors-kitty.conf")))
+        # Apps that wake on palette.json (manaDJ) find the wallpaper path already written; no temp files remain.
+        self.assertLessEqual(os.path.getmtime(os.path.join(studio.live, "wal")), os.path.getmtime(os.path.join(studio.live, "palette.json")))
+        self.assertEqual(json.loads(Path(studio.live, "palette.json").read_text())["schema"], "wal-palette/1")
+        self.assertEqual([n for n in os.listdir(studio.live) if n.endswith(".tmp")], [])
         # Backup folders are named by time; history/ and history.jsonl sit beside them.
         backups = [n for n in os.listdir(os.path.join(studio.root, "backups")) if n[:8].isdigit()]
         backup_colors = json.loads(Path(studio.root, "backups", backups[0], "colors.json").read_text())

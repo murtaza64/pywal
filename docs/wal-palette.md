@@ -41,3 +41,10 @@ Artifact rules: status colour always travels with a word or glyph; chart series 
 - Fixed PNG/PDF: store `wal-palette snapshot` (schema, revision, colours) with the export.
 - Agents: opencode core `palette/artifacts` System Context source names roles + scheme only; colour changes add no context.
 - Overrides: an artifact's brand/accessibility needs win.
+
+## Watching for changes (apps)
+
+- Location: `$PYWAL_CACHE_DIR`, else `$XDG_CACHE_HOME/wal`, else `~/.cache/wal`.
+- `palette.json` and `palette.css` are replaced atomically (write to a temp file in the same directory, then rename). Readers see the old file or the new one, never a partial one. Watch the directory or poll `palette.json`'s mtime; the inode changes on every update.
+- Wallpaper (device-local, never in the contract): `wal` holds the absolute path of the image as text; `wallpaper` is a symlink to it (Studio Apply). Both are written before `palette.json`, so an app that wakes on `palette.json` reads the matching wallpaper. Formats: png, jpg/jpeg, webp, gif (pywal), plus bmp/tiff via Studio. The path may point anywhere on this machine; treat a missing file as "no wallpaper".
+- `wallpaper.blurred` (kitty glass) is the wallpaper blurred and dimmed with the user's terminal settings; it is not a neutral source for other apps.

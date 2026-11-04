@@ -129,13 +129,19 @@ def css(contract):
     return f"{head}\n:root{{color-scheme:{contract['scheme']};--wal-revision:\"{contract['revision']}\";{';'.join(props)}}}\n"
 
 
+def replace(path, text):
+    """Write `text` to `path` atomically: readers see the old file or the new one, never a partial one."""
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "w") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
 def write(colors_json, out_dir):
     contract = build(colors_json)
     os.makedirs(out_dir, exist_ok=True)
-    with open(os.path.join(out_dir, "palette.json"), "w") as f:
-        json.dump(contract, f, indent=2)
-    with open(os.path.join(out_dir, "palette.css"), "w") as f:
-        f.write(css(contract))
+    replace(os.path.join(out_dir, "palette.json"), json.dumps(contract, indent=2))
+    replace(os.path.join(out_dir, "palette.css"), css(contract))
     return contract
 
 

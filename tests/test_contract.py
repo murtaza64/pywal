@@ -40,6 +40,13 @@ class TestContract(unittest.TestCase):
         # 2 of 271 builtin themes have surfaces too mid-grey for any readable separated pair.
         self.assertLessEqual(len(flagged), 2, flagged)
 
+    def test_write_replaces_files_whole_and_leaves_no_temp_files(self):
+        import tempfile
+        out = tempfile.mkdtemp()
+        built = contract.write(contract.DEFAULT_COLORS, out)
+        self.assertEqual(json.loads(Path(out, "palette.json").read_text()), built)
+        self.assertEqual(sorted(os.listdir(out)), ["palette.css", "palette.json"])
+
     def test_contract_never_carries_the_wallpaper_path(self):
         built = contract.build(as_colors_json(THEMES[0]))
         self.assertNotIn("private.png", json.dumps(built))
