@@ -251,7 +251,15 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 3px; bord
 .es-you { align-self: flex-end; }
 .es-composer { margin-top: auto !important; padding: 10px 12px; }
 /* Narrow screens show the terminal only, whatever scene was picked on a wide one. */
-@media (max-width: 860px) { .bar .views { display: none; } .stage[data-view] .term { display: flex; } .stage[data-view] .side { display: none; } .stage[data-view] .scene { grid-template-columns: 1fr; } }
+/* Phones: Terminal or manaDJ only (the desktop scenes need the width). */
+@media (max-width: 860px) {
+  .bar { height: auto; min-height: 36px; flex-wrap: wrap; row-gap: 4px; padding: 4px 8px; }
+  .bar .views button:not([data-v="term"]):not([data-v="manadj"]) { display: none; }
+  .bar .views button { padding: 0 6px; }
+  .stage:not([data-view="manadj"]) .term { display: flex; }
+  .stage[data-view] .side { display: none; }
+  .stage[data-view] .scene { grid-template-columns: 1fr; }
+}
 
 /* Browser tab (export site): nothing is applied, so the sync and compare-with-live controls go. */
 body.web #sync-section, body.web #apply-top, body.web #compare, body.web #live-wall, body.web #syncbar { display: none; }
@@ -304,3 +312,14 @@ body.web #sync-section, body.web #apply-top, body.web #compare, body.web #live-w
 .mdj-tracks td { padding: 4px 8px; border-bottom: 1px solid color-mix(in srgb, var(--surface0) 60%, transparent); white-space: nowrap; }
 .mdj-mark { width: 3px; padding: 0 !important; background: var(--dc, transparent); }
 .mdj-k { color: var(--success); } .mdj-b { color: var(--accent); } .mdj-a { color: var(--subtext0); }
+@media (max-width: 860px) {
+  .stage[data-view="manadj"] .scene { top: 36px; }
+  .mdj-bar { flex-wrap: wrap; row-gap: 4px; }
+  .mdj-bar > * { flex-shrink: 0; }
+  .mdj-bar .grow { display: none; }
+  .mdj-note { flex: 1 1 100%; order: 9; }
+  .mdj-wave { height: 24px; }
+  .mdj-deck { grid-template-columns: auto minmax(0, 1fr); padding: 4px 6px; }
+  .mdj-badge { grid-row: auto; width: 18px; height: 18px; }
+  .mdj-artist, .mdj-bpm, .mdj-key, .mdj-cue, .mdj-play, .mdj-tracks td:nth-child(5), .mdj-tracks th:nth-child(5) { display: none; }
+}

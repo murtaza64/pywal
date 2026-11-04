@@ -24,7 +24,7 @@ Needs Python 3.13+, `uv`, and ImageMagick (`magick`) on `PATH` for the blurred w
 
 - **Wallpaper strip**: click to generate; ←/→, Random, Live wallpaper (jump to the live theme's image). A coloured band under a thumbnail means the cache already holds a scheme for it.
 - **Themes**: built-in and saved themes, and cached schemes, each with an 8-colour band; Save stores the draft as a theme.
-- **Scenes**: Desktop (terminal, browser and chat on the wallpaper), or one of them filling the stage.
+- **Scenes**: Desktop (terminal, browser and chat on the wallpaper), or one of them filling the stage. Phones (under 861px wide) offer Terminal and manaDJ.
 - **manaDJ scene**: the draft as manaDJ's wallpaper theme, mapped by the module manaDJ's wallpaper theme uses on `palette.json` (gh#470) (`static/manadj.js`, generated from manaDJ's `walTheme.ts`). Four waveform rows, four decks and the track list. Toggles: wallpaper or identity deck colours; waveform preset (RGB default, Triad, Deck, Accent); the blurred track-list backdrop, dimmed to keep text at 7:1 over this wallpaper's brightest blurred region. Waveforms use manaDJ's additive-RGB formula on synthetic audio. Light palettes show why manaDJ keeps its default theme (it is dark-only).
 - **Palette**: dark/light, contrast, saturation, brightness, background lightness/chroma, shading, choose, strategy, seed, shuffle. Every change updates the draft only; the stage says when it is updating, the result, or why a preview failed.
 - **Slot**: click a swatch to pin a colour (hex or OKLCH sliders).

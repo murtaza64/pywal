@@ -1,5 +1,5 @@
 // manaDJ wallpaper theme mapping (wal-palette/1 -> manaDJ tokens, decks, waveform presets, backdrop).
-// GENERATED from manadj-wal/ts-v4/walTheme.ts (sha256 433b3c75dc31…, gh#470) with esbuild; do not edit by hand.
+// GENERATED from manadj-wal/ts-v5/walTheme.ts (sha256 3a402740b2c2…, gh#470) with esbuild; do not edit by hand.
 // MANADJ_BASE: manaDJ tokens.ts CSS_VARS (surface/text tokens the mapping re-hues).
 export const MANADJ_BASE = { '--base': '#1e1e1e', '--mantle': '#181818', '--crust': '#111111', '--void': '#0b0b0f', '--surface0': '#313136', '--surface1': '#45454f', '--surface2': '#58585b', '--overlay0': '#6c7086', '--overlay1': '#7f849c', '--overlay2': '#9399b2', '--text': '#cdd6f4', '--subtext1': '#bac2de', '--subtext0': '#a6adc8' };
 const DECKS = ["A", "B", "C", "D"];
@@ -79,20 +79,20 @@ function pickDecks(sources, accentHue) {
   }
   const grid = Array.from({ length: 180 }, (_, i) => i * 2).filter(allowed);
   const fill = (hues) => {
-    const out = [...hues];
-    while (out.length < 4) {
-      let best2 = grid[0];
-      let bestD = -1;
-      for (const h of grid) {
-        const dd = Math.min(...out.map((o) => hueDist(o, h)), 360);
-        if (dd > bestD) {
-          bestD = dd;
-          best2 = h;
-        }
-      }
-      out.push(best2);
+    const m = 4 - hues.length;
+    if (m === 0) return [...hues];
+    let lo = 0;
+    let hi = 180;
+    let best2 = place(hues, m, grid, 0) ?? [];
+    while (hi - lo > 0.5) {
+      const d = (lo + hi) / 2;
+      const p = place(hues, m, grid, d);
+      if (p) {
+        lo = d;
+        best2 = p;
+      } else hi = d;
     }
-    return out;
+    return [...hues, ...best2];
   };
   let best = null;
   const better = (a, b) => {
@@ -128,6 +128,29 @@ function pickDecks(sources, accentHue) {
   const decks = Object.fromEntries(DECKS.map((k, i) => [k, vivid(pick.hues[order[i]], 0.6, 0.88)]));
   const source = Object.fromEntries(DECKS.map((k, i) => [k, srcs[order[i]]]));
   return { decks, report: { source, minGap: Math.round(pick.gap * 10) / 10, cvdMin: cvdMinDistance(Object.values(decks)) } };
+}
+function place(fixed, m, grid, d) {
+  const ok = grid.filter((h) => fixed.every((f) => hueDist(f, h) >= d));
+  const pack = (start, wrap) => {
+    const offs = fixed.map((f) => (f - start + 360) % 360);
+    const out = [];
+    let last = -Infinity;
+    for (const off of ok.map((h) => (h - start + 360) % 360).sort((x, y) => x - y)) {
+      if (offs.some((f) => f > last && f < off)) last = -Infinity;
+      if (off - last < d) continue;
+      out.push(off);
+      last = off;
+      if (out.length === m) break;
+    }
+    if (out.length < m || wrap && 360 - out[m - 1] < d) return null;
+    return out.map((off) => (off + start) % 360);
+  };
+  if (fixed.length) return pack(fixed[0], false);
+  for (const s of ok) {
+    const p = pack(s, true);
+    if (p) return p;
+  }
+  return null;
 }
 function permutations(xs) {
   if (xs.length <= 1) return [xs];
