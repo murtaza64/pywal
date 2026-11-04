@@ -134,7 +134,8 @@ class Studio:
             self.last = colors
         # The seed as a string too: JSON numbers above 2**53 lose digits in the page.
         seed = (colors.get("settings") or {}).get("seed")
-        return {"colors": colors, "outputs": sorted(os.listdir(self.preview_dir)), "seed": None if seed is None else str(seed)}
+        # The draft as the wal-palette contract apps read (manaDJ's preview maps it like the app will).
+        return {"colors": colors, "palette": contract.build(colors), "outputs": sorted(os.listdir(self.preview_dir)), "seed": None if seed is None else str(seed)}
 
     def palette(self):
         """The live wal-palette contract (colours only), memoised on the cache files' mtimes; never writes."""

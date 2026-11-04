@@ -85,6 +85,9 @@ class TestStudio(unittest.TestCase):
         res = studio.post("/api/preview", {"image": os.path.join(studio.walls, "sweep.png"), "settings": {"contrast": 1.5}})
         self.assertIn("colors-kitty.conf", res["outputs"])
         self.assertEqual(studio.live_snapshot(), before)
+        # The draft as the wal-palette contract, for app previews (manaDJ).
+        self.assertEqual(res["palette"]["schema"], "wal-palette/1")
+        self.assertEqual(len(res["palette"]["highlights"]), 8)
 
     def test_apply_is_refused_without_allow_apply(self):
         studio = StudioServer()

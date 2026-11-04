@@ -1,3 +1,5 @@
+import { MDJ_DEFAULTS, renderManadj } from "./manadj-scene.js"
+
 const $ = (id) => document.getElementById(id)
 const S = { historyRows: [], floor: 0, results: {}, state: null, live: null, image: "", settings: {}, look: {}, overrides: {}, draft: null, selected: null, split: 0.5, sizes: {}, targets: null, sync: null }
 const RANGE = ["contrast", "saturate", "brightness", "bg_lightness", "bg_chroma", "subtractive_initial"]
@@ -22,6 +24,8 @@ const bandEl = (p) => {
   el.append(...c.map((hex) => Object.assign(document.createElement("i"), { style: `background:${hex || "transparent"}` })))
   return el
 }
+// manaDJ view options (decks, waveform preset, backdrop), kept per browser.
+S.mdj = { ...MDJ_DEFAULTS, ...(() => { try { return JSON.parse(localStorage.walManadj || "{}") } catch { return {} } })() }
 const flat = (c) => ({ ...(c?.colors || {}), ...(c?.surfaces || {}), ...(c?.special || {}) })
 
 async function boot() {
@@ -34,6 +38,8 @@ async function boot() {
     b.disabled = !S.state.allowApply
     b.title = S.state.allowApply ? "Write the draft to the live theme and sync checked apps" : "Preview only: restart the studio with --allow-apply"
   }
+  // The live palette as manaDJ reads it (Compare's original layer in the manaDJ view); absent in the web build.
+  if (!S.state.web) fetch("palette.json").then((r) => r.ok ? r.json() : null).then((p) => { S.livePalette = p; if ($("stage").dataset.view === "manadj") renderOriginal() }).catch(() => {})
   walls()
   bind()
   renderOriginal()
@@ -97,6 +103,13 @@ function bind() {
   for (const k of RANGE) $(k).addEventListener("input", tracks)
   $("exact").onchange = () => { renderDraft(); renderOriginal() }
   $("views").onclick = (e) => e.target.dataset?.v && view(e.target.dataset.v)
+  $("stage").addEventListener("click", (e) => {
+    const b = e.target.closest(".mdj-seg button")
+    if (!b) return
+    S.mdj[b.parentElement.dataset.k] = b.dataset.v
+    localStorage.walManadj = JSON.stringify(S.mdj)
+    renderDraft(); renderOriginal()
+  })
   view(localStorage.walView || "desk")
   $("chrome").onclick = () => { localStorage.walChrome = localStorage.walChrome === "neutral" ? "tinted" : "neutral"; chrome() }
   for (const k of ["l", "c", "h"]) $(`lch-${k}`).addEventListener("input", () => pin(oklchToHex(+$("lch-l").value, +$("lch-c").value, +$("lch-h").value)))
@@ -107,7 +120,7 @@ function bind() {
   $("random").onclick = () => { const w = S.state.wallpapers; pick(w[Math.floor(Math.random() * w.length)].path) }
   $("live-wall").onclick = () => S.live?.wallpaper && pick(S.live.wallpaper)
   $("revert").onclick = () => { fromLive(); generate() }
-  $("compare").onclick = () => { $("compare").classList.toggle("on"); layout() }
+  $("compare").onclick = () => { $("compare").classList.toggle("on"); layout(); renderOriginal() }
   $("slot-color").addEventListener("input", (e) => pin(e.target.value))
   $("slot-hex").addEventListener("change", (e) => /^#[0-9a-f]{6}$/i.test(e.target.value) && pin(e.target.value.toLowerCase()))
   $("slot-clear").onclick = () => { delete S.overrides[S.selected]; schedule(0) }
@@ -132,6 +145,7 @@ function view(v) {
   for (const b of $("views").children) b.classList.toggle("on", b.dataset.v === v)
   localStorage.walView = v
   renderDraft()
+  renderOriginal()
 }
 
 const isField = (el) => ["INPUT", "SELECT", "TEXTAREA"].includes(el.tagName) && el.type !== "range" && el.type !== "checkbox"
@@ -215,6 +229,7 @@ async function generate() {
     const res = await api("api/preview", { image: S.image, settings: S.settings, overrides: S.overrides, look: effLook(), theme: S.theme, restore: S.restore, scheme: S.scheme, history: S.history })
     if (ticket !== inflight) return
     S.draft = res.colors
+    S.draftPalette = res.palette
     // A cached scheme brings the settings that generated it; retuning continues from there.
     if (S.scheme) { S.settings = { ...S.state.defaults, ...res.colors.settings }; syncControls() }
     S.settings.seed = res.seed ?? String(res.colors.settings.seed)
@@ -266,7 +281,7 @@ function layout() {
 function flash(on) {
   $("flash").hidden = !on
   const orig = $("layer-orig")
-  if (on) { orig.hidden = false; orig.style.clipPath = "" } else layout()
+  if (on) { orig.hidden = false; orig.style.clipPath = ""; if ($("stage").dataset.view === "manadj") renderOriginal() } else layout()
 }
 
 // One themed desktop: wallpaper, kitty over blurred+darkened glass, Firefox and an Editspace-style app beside it.
@@ -320,6 +335,17 @@ function scene(layer, c, image, look, was) {
   fox(sc.querySelector(".fox"), c)
   es(sc.querySelector(".es"), c, image, look)
   swatches(sc.querySelector(".swatches"), c, was, layer.id === "layer-draft")
+  // Measured layouts only: a hidden layer (Compare off) has no size; it renders when shown.
+  if ($("stage").dataset.view === "manadj" && !layer.hidden) {
+    const list = sc.querySelector(".mdj-list")
+    renderManadj(sc.querySelector(".mdj"), layer.id === "layer-draft" ? S.draftPalette : S.livePalette, image, S.mdj, (path) => sizeOf(path).then(async (size) => {
+      // manaDJ blurs the track-list backdrop 24px at the list's cover scale; the nearest ladder level, and its brightest region.
+      const coverW = size.w * Math.max(list.clientWidth / size.w, list.clientHeight / size.h)
+      const lad = await ladderFor(path, coverW)
+      const i = LEVELS.reduce((best, l, j) => Math.abs(l - 24) < Math.abs(LEVELS[best] - 24) ? j : best, 0)
+      return { url: lad.urls[i], brightest: lad.brightest[i] }
+    }))
+  }
 }
 
 const sizes = {}

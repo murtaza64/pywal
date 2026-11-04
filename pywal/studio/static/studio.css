@@ -268,3 +268,39 @@ body.web #sync-section, body.web #apply-top, body.web #compare, body.web #live-w
 .here-note { font-size: 11px; color: var(--faint); margin: 2px 0 0; }
 .here-links { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
 .here-links a { color: var(--accent); }
+
+/* manaDJ view: the draft as manaDJ's wallpaper theme (manadj-scene.js). Its own token scope (--base … --deck-d). */
+.mdj { display: none; }
+.stage[data-view="manadj"] .scene { grid-template-columns: minmax(0, 1fr); }
+.stage[data-view="manadj"] .term, .stage[data-view="manadj"] .side { display: none; }
+.stage[data-view="manadj"] .mdj { display: grid; grid-template-rows: auto auto auto minmax(0, 1fr); min-height: 0; overflow: hidden; background: var(--crust); color: var(--text); box-shadow: 8px 8px 0 rgba(0,0,0,.38); font-size: 12px; }
+.mdj-bar { display: flex; align-items: center; gap: 8px; padding: 5px 8px; background: var(--mantle); border-bottom: 1px solid var(--surface0); }
+.mdj-bar b { font-size: 14px; } .mdj-bar b i { font-style: normal; color: var(--accent); }
+.mdj-note { color: var(--subtext0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+.mdj-seg { display: inline-flex; }
+.mdj-seg button { height: 20px; padding: 0 7px; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; background: var(--base); border: 1px solid var(--surface1); color: var(--subtext1); cursor: pointer; margin-left: -1px; }
+.mdj-seg button.on { background: var(--accent); border-color: var(--accent); color: var(--crust); }
+.mdj.refused .mdj-seg { opacity: .4; pointer-events: none; }
+.mdj-waves { display: grid; gap: 2px; padding: 2px; background: var(--void); }
+.mdj-wave { position: relative; height: 34px; border: 2px solid var(--dc); }
+.mdj-wave canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.mdj-wave span { position: absolute; right: 4px; top: 1px; font-size: 10px; color: var(--dc); }
+[data-d="A"] { --dc: var(--deck-a); } [data-d="B"] { --dc: var(--deck-b); } [data-d="C"] { --dc: var(--deck-c); } [data-d="D"] { --dc: var(--deck-d); }
+.mdj-decks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; background: var(--crust); }
+.mdj-deck { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto auto; grid-template-rows: auto auto; align-items: center; gap: 0 10px; padding: 6px 8px; background: var(--base); border: 1px solid var(--dc); }
+.mdj-badge { grid-row: span 2; width: 22px; height: 22px; display: grid; place-items: center; background: var(--dc); color: var(--crust); }
+.mdj-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mdj-artist { grid-column: 2; grid-row: 2; color: var(--subtext0); font-size: 11px; }
+.mdj-bpm { grid-row: span 2; color: var(--accent); font-size: 16px; }
+.mdj-key { grid-row: span 2; color: var(--success); }
+.mdj-cue { grid-row: span 2; padding: 2px 8px; border: 1px solid var(--orange); color: var(--orange); font-size: 10px; }
+.mdj-play { grid-row: span 2; padding: 1px 8px; border: 1px solid var(--success); color: var(--success); }
+.mdj-list { position: relative; isolation: isolate; overflow: hidden; background: var(--crust); min-height: 0; }
+.mdj-bd { position: absolute; inset: 0; z-index: -1; }
+.mdj-wp { position: absolute; inset: 0; background: center / cover no-repeat; }
+.mdj-dim { position: absolute; inset: 0; background: #000; }
+.mdj-tracks { width: 100%; border-collapse: collapse; }
+.mdj-tracks th { text-align: left; font-weight: 400; color: var(--overlay1); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: 4px 8px; border-bottom: 1px solid var(--surface0); }
+.mdj-tracks td { padding: 4px 8px; border-bottom: 1px solid color-mix(in srgb, var(--surface0) 60%, transparent); white-space: nowrap; }
+.mdj-mark { width: 3px; padding: 0 !important; background: var(--dc, transparent); }
+.mdj-k { color: var(--success); } .mdj-b { color: var(--accent); } .mdj-a { color: var(--subtext0); }

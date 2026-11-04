@@ -13,7 +13,7 @@
   <span class="mark">wal<b>studio</b></span>
   <span class="where" id="where">…</span>
   <span class="grow"></span>
-  <div class="seg views" id="views" role="group" aria-label="Preview scene"><button data-v="desk" title="Terminal, browser and chat on the wallpaper">Desktop</button><button data-v="term" title="Terminal on wallpaper glass">Terminal</button><button data-v="browser" title="Browser (pywalfox colours)">Browser</button><button data-v="chat" title="Chat app on wallpaper glass">Chat</button></div>
+  <div class="seg views" id="views" role="group" aria-label="Preview scene"><button data-v="desk" title="Terminal, browser and chat on the wallpaper">Desktop</button><button data-v="term" title="Terminal on wallpaper glass">Terminal</button><button data-v="browser" title="Browser (pywalfox colours)">Browser</button><button data-v="chat" title="Chat app on wallpaper glass">Chat</button><button data-v="manadj" title="manaDJ with its wallpaper theme: decks, waveforms, track list">manaDJ</button></div>
   <div class="syncbar" id="syncbar" role="list" aria-label="Sync state"></div>
   <button class="btn" id="chrome" title="Studio chrome: tinted by the draft, or fixed neutral">Tinted</button>
   <button class="btn" id="compare" title="Hold C to flash the original">Compare</button>
@@ -154,6 +154,16 @@
             <p class="es-composer">Message…</p>
           </div></div>
       </div>
+    </div>
+    <div class="mdj">
+      <div class="mdj-bar"><b>mana<i>DJ</i></b><span class="mdj-note"></span><span class="grow"></span>
+        <span class="mdj-seg" data-k="decks" title="Deck colours"><button data-v="wall">Wallpaper decks</button><button data-v="identity">Identity</button></span>
+        <span class="mdj-seg" data-k="wave" title="Waveform preset (manaDJ default: RGB)"><button data-v="default">RGB</button><button data-v="wallpaper">Triad</button><button data-v="deck">Deck</button><button data-v="accent">Accent</button></span>
+        <span class="mdj-seg" data-k="backdrop" title="Wallpaper behind the track list (experimental)"><button data-v="on">Backdrop</button><button data-v="off">Off</button></span>
+      </div>
+      <div class="mdj-waves"></div>
+      <div class="mdj-decks"></div>
+      <div class="mdj-list"><div class="mdj-bd"><div class="mdj-wp"></div><div class="mdj-dim"></div></div><table class="mdj-tracks"></table></div>
     </div>
     <div class="swatches"></div>
   </div>
