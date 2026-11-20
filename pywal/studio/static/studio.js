@@ -1009,4 +1009,4 @@ function historyRow(e) {
   actions.append(load, compare, restore)
   row.append(thumb, bandEl(e.band || []), meta, chipRow, actions)
   return row
-    }
+}
