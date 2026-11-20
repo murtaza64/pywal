@@ -423,6 +423,9 @@ function es(el, c, image, look) {
     wp.style.filter = `blur(${(look.blur * scale).toFixed(2)}px)`
   })
   el.querySelector(".es-dimmer").style.opacity = look.dim ?? 0
+  const etint = el.querySelector(".es-tint")
+  etint.style.background = c.background
+  etint.style.opacity = look.tint
   el.querySelector(".es-scrim").style.background = `linear-gradient(${v["--base"]}7a, ${v["--base"]}c7)`
   el.style.color = v["--text"]
   const nav = el.querySelector(".es-nav")
@@ -1006,4 +1009,4 @@ function historyRow(e) {
   actions.append(load, compare, restore)
   row.append(thumb, bandEl(e.band || []), meta, chipRow, actions)
   return row
-}
+    }
