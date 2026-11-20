@@ -39,7 +39,7 @@ Needs Python 3.13+, `uv`, and ImageMagick (`magick`) on `PATH` for the blurred w
 | Target | What Apply does | Proof shown | Tested |
 |---|---|---|---|
 | files | backs up, then writes `colors.json`, `palette.json/css` and every template into the live directory | re-reads `colors.json` | macOS |
-| kitty | `kitty @ set-colors` + blurred (and dimmed) wallpaper as background image, every instance | `kitty @ get-colors` | macOS, kitty 0.47 |
+| kitty | `kitty @ set-colors` + blurred (and dimmed) wallpaper as background image, every instance; Darken rides in `colors-kitty.conf` and applies by config reload (kitty's set-colors drops `background_tint`) | `kitty @ get-colors` for colours; the tint has no readback, so it is reported as configured + reloaded | macOS, kitty 0.47 |
 | pywalfox | `pywalfox update` | none (no readback): `sent` | macOS |
 | tmux | re-sources `~/.config/tmux/tmux.conf` or `~/.tmux.conf` | exit status | macOS |
 | Editspace (optional) | nothing; the app follows `colors.json` | its appearance receipt: `loaded`, or `verified` when an open window confirms it | macOS |
