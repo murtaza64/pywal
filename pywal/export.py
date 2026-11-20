@@ -120,8 +120,15 @@ def flatten_colors(colors):
         all_colors.update(colors["ansi"])
     if "surfaces" in colors:
         all_colors.update(colors["surfaces"])
-    
-    return {k: util.Color(v) for k, v in all_colors.items()}
+
+    flat = {k: util.Color(v) for k, v in all_colors.items()}
+    # Palette Studio's wallpaper glass (studio/server.py DEFAULT_LOOK) is config text, not a color.
+    # Templates opt in with {studio_glass_kitty}; plain `wal` runs carry no studio look and render an
+    # empty string, so their output is unchanged.
+    studio = colors.get("studio") or {}
+    tint = studio.get("tint")
+    flat["studio_glass_kitty"] = f"background_tint {float(tint):g}" if tint is not None else ""
+    return flat
 
 
 def get_export_type(export_type):

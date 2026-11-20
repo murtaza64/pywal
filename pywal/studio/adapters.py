@@ -6,6 +6,7 @@ the written colors.json). Apps without a readback are reported as `sent`.
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -77,9 +78,11 @@ def plan(studio, targets):
             steps.append({"target": target, "writes": [f"{studio.live_dir}/{n}" for n in names] + [f"{studio.live_dir}/wal", f"{studio.live_dir}/wallpaper"],
                           "backup": f"{studio.backups}/<time>/"})
         if target == "kitty":
-            steps.append({"target": target, "writes": [f"{studio.live_dir}/blurred/<wallpaper>-s{look.get('blur', 16):g}-<key>", f"{studio.live_dir}/wallpaper.blurred -> that file"],
-                          "runs": [f"kitty @ --to {s} set-colors --all --configured colors-kitty.conf background_tint={look.get('tint', 0.95):g}" for s in kitty_sockets()]
-                          + [f"kitty @ --to {s} set-background-image --all --configured wallpaper.blurred" for s in kitty_sockets()]})
+            steps.append({"target": target, "writes": [f"{studio.live_dir}/blurred/<wallpaper>-s{look.get('blur', 16):g}-<key>", f"{studio.live_dir}/wallpaper.blurred -> that file",
+                                                       f"background_tint {look.get('tint', 0.95):g} in colors-kitty.conf (kitty's set-colors drops tint; it applies on config reload)"],
+                          "runs": [f"kitty @ --to {s} set-colors --all --configured colors-kitty.conf" for s in kitty_sockets()]
+                          + [f"kitty @ --to {s} set-background-image --all --configured wallpaper.blurred" for s in kitty_sockets()]
+                          + [f"kitty @ --to {s} load-config (reload applies the tint)" for s in kitty_sockets()]})
         if target == "es-desktop":
             steps.append({"target": target, "runs": [], "note": f"No command: the app polls colors.json; proof = {display(ES_RECEIPT)}"})
         if target == "pywalfox":
@@ -143,12 +146,49 @@ def apply_kitty(studio, draft):
         shutil.copy2(rendered, blurred)
     link(blurred, os.path.join(studio.live_dir, "wallpaper.blurred"))
     conf = os.path.join(studio.live_dir, "colors-kitty.conf")
+    failures = []
     for sock in sockets:
-        kitty(sock, "set-colors", "--all", "--configured", conf, f"background_tint={look.get('tint', 0.95):g}")
-        kitty(sock, "set-background-image", "--all", "--configured", os.path.join(studio.live_dir, "wallpaper.blurred"))
+        for args in (("set-colors", "--all", "--configured", conf),
+                     ("set-background-image", "--all", "--configured", os.path.join(studio.live_dir, "wallpaper.blurred"))):
+            out = kitty(sock, *args)
+            if out.returncode != 0:
+                failures.append(f"{sock} {args[0]} failed: {(out.stderr or out.stdout).strip()[-200:] or 'exit ' + str(out.returncode)}")
+    # kitty's set-colors drops background_tint (a float, not a color: kitty/rc/set_colors.py keeps only
+    # color keys), so the tint rides in colors-kitty.conf via the {studio_glass_kitty} template line and
+    # each instance reloads it. kitty keeps tint in its live options and reads it every frame (shaders.c
+    # draw_tint reads OPT(background_tint)), and `load-config` (kitty rc since well before 0.47) reloads
+    # the instance's own config files through the same authenticated socket, so no process is signalled.
+    tint = float(look.get("tint", 0.95))
+    tint_line = f"background_tint {tint:g}"
+    # The live colors-kitty.conf must carry this draft's tint before the reload. The files target
+    # normally wrote it moments ago; a kitty-only Apply repairs just the tint line in place.
+    conf_text = Path(conf).read_text() if os.path.isfile(conf) else ""
+    if not conf_text:
+        failures.append(f"{conf} does not exist; include the files target so kitty has colours and tint")
+    elif tint_line not in conf_text:
+        if "background_tint" in conf_text:
+            conf_text = re.sub(r"(?m)^background_tint\s+\S+.*$", tint_line, conf_text)
+        else:
+            conf_text = conf_text.rstrip("\n") + "\n\n# Wallpaper glass tint, written by Palette Studio Apply.\n" + tint_line + "\n"
+        tmp = conf + f".{os.getpid()}.tmp"
+        Path(tmp).write_text(conf_text)
+        os.replace(tmp, conf)
+    reloaded, reload_failed = [], []
+    for sock in sockets:
+        out = kitty(sock, "load-config")
+        (reloaded if out.returncode == 0 else reload_failed).append(sock)
+    if reload_failed:
+        failures.append("config reload failed for " + ", ".join(reload_failed) + "; the tint reaches those instance(s) on their next restart")
     seen = probe_kitty()
     ok = all(w.get("background") == draft["special"]["background"] for w in seen.get("windows", []))
-    return {"status": "verified" if ok and seen.get("windows") else "mismatch", "detail": seen.get("detail")}
+    detail = "; ".join(x for x in [seen.get("detail"),
+                                   f"tint {tint:g} written to colors-kitty.conf and reload sent to {len(reloaded)} instance(s); tint has no readback, "
+                                   "and applies only where the instance's config includes this colors-kitty.conf",
+                                   *failures] if x)
+    if failures:
+        return {"status": "partial", "detail": detail}
+    # verified covers the colour readback only; the tint line above is configured, not read back.
+    return {"status": "verified" if ok and seen.get("windows") else "mismatch", "detail": detail}
 
 
 def apply_es(studio, draft):

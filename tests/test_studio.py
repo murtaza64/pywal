@@ -89,6 +89,95 @@ class TestStudio(unittest.TestCase):
         self.assertEqual(res["palette"]["schema"], "wal-palette/1")
         self.assertEqual(len(res["palette"]["highlights"]), 8)
 
+    def test_preview_writes_the_darken_tint_into_colors_kitty_conf(self):
+        # kitty's set-colors silently drops background_tint (a float, not a color), so the Darken
+        # slider must reach kitty through the config it reloads.
+        studio = StudioServer()
+        self.addCleanup(studio.close)
+        studio.post("/api/preview", {"image": os.path.join(studio.walls, "sweep.png"), "look": {"tint": 0.66}})
+        conf = Path(studio.root, "scratch", "preview", "colors-kitty.conf").read_text()
+        self.assertIn("background_tint 0.66", conf)
+
+    def test_apply_files_carries_the_tint_into_the_live_cache(self):
+        studio = StudioServer("--allow-apply")
+        self.addCleanup(studio.close)
+        studio.post("/api/preview", {"image": os.path.join(studio.walls, "sweep.png"), "look": {"tint": 0.66}})
+        studio.post("/api/apply", {"targets": ["files"], "look": {"tint": 0.66}})
+        self.assertIn("background_tint 0.66", Path(studio.live, "colors-kitty.conf").read_text())
+        live = json.loads(Path(studio.live, "colors.json").read_text())
+        self.assertEqual(live["studio"]["tint"], 0.66)
+
+    def test_wal_export_without_a_studio_look_leaves_the_tint_line_empty(self):
+        # Plain `wal` runs have no wallpaper glass; the kitty template's glass line must stay empty.
+        from pywal import export
+        colors = {"wallpaper": "w", "checksum": "c", "alpha": "100",
+                  "special": {"background": "#010203", "foreground": "#eeeeee", "cursor": "#eeeeee"}, "colors": {}}
+        self.assertEqual(export.flatten_colors(colors)["studio_glass_kitty"], "")
+        colors["studio"] = {"blur": 16, "tint": 0.7, "dim": 0.0}
+        self.assertEqual(export.flatten_colors(colors)["studio_glass_kitty"], "background_tint 0.7")
+
+    def test_kitty_plan_reloads_config_through_the_socket_not_a_parsed_pid(self):
+        # The tint applies on config reload; the reload must go through kitty's authenticated
+        # remote-control socket (load-config), never a signal to a pid parsed from a filename.
+        from pywal.studio import adapters
+        sock = os.path.join(tempfile.gettempdir(), "kitty-99999.sock")
+        try:
+            Path(sock).touch()
+            self.assertEqual(adapters.socket_pid(sock) if hasattr(adapters, "socket_pid") else None, None)
+            studio = StudioServer()
+            self.addCleanup(studio.close)
+            studio.post("/api/preview", {"image": os.path.join(studio.walls, "sweep.png"), "look": {"tint": 0.66}})
+            plan = studio.post("/api/plan", {"targets": ["kitty"], "look": {"tint": 0.66}})
+            runs = plan["steps"][0]["runs"]
+            self.assertTrue(any("load-config" in r for r in runs), runs)
+            self.assertFalse(any("SIGUSR1" in r or "kill" in r for r in runs), runs)
+        finally:
+            os.unlink(sock)
+
+    def test_kitty_apply_writes_the_tint_and_reloads_through_the_socket(self):
+        # A fake kitty records its remote-control calls and serves colours from the conf it was
+        # handed; a fake magick copies instead of blurring. No real terminal is involved.
+        fakebin = tempfile.mkdtemp(prefix="studio-fakebin-")
+        log = os.path.join(fakebin, "log")
+        saved = os.path.join(fakebin, "colors.conf")
+        with open(os.path.join(fakebin, "kitty"), "w") as f:
+            f.write("#!/bin/sh\n"
+                    f"echo \"$@\" >> {log}\n"
+                    "case \"$*\" in\n"
+                    f"  *set-colors*) for a in \"$@\"; do case \"$a\" in *colors-kitty.conf) cp \"$a\" {saved};; esac; done;;\n"
+                    f"  *get-colors*) awk '/^background /{{print \"background \" $2}}' {saved} 2>/dev/null || echo 'background #000000';;\n"
+                    "esac\nexit 0\n")
+        with open(os.path.join(fakebin, "magick"), "w") as f:
+            f.write("#!/bin/sh\nin=$1; for a in \"$@\"; do last=$a; done; cp \"$in\" \"$last\"\n")
+        os.chmod(os.path.join(fakebin, "kitty"), 0o755)
+        os.chmod(os.path.join(fakebin, "magick"), 0o755)
+        sock = os.path.join(tempfile.gettempdir(), "kitty-99998.sock")
+        Path(sock).touch()
+        try:
+            studio = StudioServer("--allow-apply", "--targets", "files,kitty",
+                                  env={"PATH": fakebin + ":" + os.environ["PATH"]})
+            self.addCleanup(studio.close)
+            sweep = os.path.join(studio.walls, "sweep.png")
+            studio.post("/api/preview", {"image": sweep, "look": {"tint": 0.8, "blur": 8}})
+            res = studio.post("/api/apply", {"targets": ["files", "kitty"], "look": {"tint": 0.8, "blur": 8}})
+            kitty_res = next(r for r in res["results"] if r["target"] == "kitty")
+            self.assertEqual(kitty_res["status"], "verified")
+            # The colour readback is verified; the tint is configured and reload-sent, and says so.
+            self.assertIn("tint has no readback", kitty_res["detail"])
+            calls = Path(log).read_text()
+            self.assertIn("load-config", calls)
+            self.assertNotIn("SIGUSR1", calls)
+            self.assertIn("background_tint 0.8", Path(studio.live, "colors-kitty.conf").read_text())
+            # A kitty-only re-apply repairs the tint line in place rather than needing files again.
+            studio.post("/api/preview", {"image": sweep, "look": {"tint": 0.5, "blur": 8}})
+            res = studio.post("/api/apply", {"targets": ["kitty"], "look": {"tint": 0.5, "blur": 8}})
+            self.assertEqual(next(r for r in res["results"] if r["target"] == "kitty")["status"], "verified")
+            conf = Path(studio.live, "colors-kitty.conf").read_text()
+            self.assertIn("background_tint 0.5", conf)
+            self.assertNotIn("background_tint 0.8", conf)
+        finally:
+            os.unlink(sock)
+
     def test_apply_is_refused_without_allow_apply(self):
         studio = StudioServer()
         self.addCleanup(studio.close)
