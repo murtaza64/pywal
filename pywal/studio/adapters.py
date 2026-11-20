@@ -328,3 +328,4 @@ def mtime(path):
 
 def display(path):
     return "~" + path[len(HOME):] if path.startswith(HOME + os.sep) else path
+
